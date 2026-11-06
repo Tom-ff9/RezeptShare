@@ -44,19 +44,10 @@
         </div>
     </header>
 
-<script>
-    window.captchaInitialisieren = function () {
-        window.anmeldeCaptchaId = hcaptcha.render(
-            document.querySelector("#anmelde-formular .h-captcha")
-        );
+    <script src="captcha.js"></script>
+    <script src="https://js.hcaptcha.com/1/api.js?render=explicit&onload=captchaInitialisieren" defer></script>
 
-        window.registrierCaptchaId = hcaptcha.render(
-            document.querySelector("#registrier-formular .h-captcha")
-        );
-    };
-</script>
-
-    <main>
+<main>
         <section id="landing-bereich">
             <div class="hero">
                 <p class="eyebrow">Rezepte für deine Lieblingsmenschen</p>
@@ -237,7 +228,6 @@
             </div>
         </form>
     </dialog>
-<script src="https://js.hcaptcha.com/1/api.js?render=explicit&onload=captchaInitialisieren" defer></script>
 </body>
 </html>
 
