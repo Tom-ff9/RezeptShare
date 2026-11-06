@@ -1,3 +1,5 @@
+let anmeldeCaptchaId;
+let registrierCaptchaId;
 
 function captchaInitialisieren() {
     anmeldeCaptchaId = hcaptcha.render(
@@ -28,8 +30,6 @@ const benutzerEmail = document.querySelector("#benutzer-email");
 
 const anmeldeFormular = document.querySelector("#anmelde-formular");
 const registrierFormular = document.querySelector("#registrier-formular");
-let anmeldeCaptchaId;
-let registrierCaptchaId;
 const authMeldung = document.querySelector("#auth-meldung");
 const einladungsHinweis = document.querySelector("#einladungs-hinweis");
 const profilDialog = document.querySelector("#profil-dialog");
