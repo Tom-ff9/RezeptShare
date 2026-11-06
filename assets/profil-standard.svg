@@ -1,0 +1,1 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><defs><clipPath id="kreis"><circle cx="64" cy="64" r="64"/></clipPath></defs><g clip-path="url(#kreis)"><path fill="#cecece" d="M0 0h128v128H0z"/><circle cx="64" cy="48" r="23" fill="#f2f2f2"/><ellipse cx="64" cy="123" rx="48" ry="48" fill="#f2f2f2"/></g></svg>

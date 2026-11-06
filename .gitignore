@@ -1,0 +1,11 @@
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
+.DS_Store
+
+supabase/.temp/
+
+node_modules/
+.env
+.env.*
+!.env.example

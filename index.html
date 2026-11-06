@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+        content="
+        default-src 'self';
+        script-src 'self' https://cdn.jsdelivr.net https://hcaptcha.com https://*.hcaptcha.com;
+        connect-src 'self' https://*.supabase.co wss://*.supabase.co https://hcaptcha.com https://*.hcaptcha.com;
+        img-src 'self' data: blob: https://*.supabase.co https://hcaptcha.com https://*.hcaptcha.com;
+        style-src 'self' 'unsafe-inline' https://hcaptcha.com https://*.hcaptcha.com;
+        frame-src https://hcaptcha.com https://*.hcaptcha.com;
+        object-src 'none';
+        base-uri 'self';
+        form-action 'self';
+        ">
+    <title>Rezept Share</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="konfiguration.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js" defer></script>
+    <script src="funktionen.js" defer></script>
+    <script src="gruppen.js" defer></script>
+    <script src="script.js" defer></script>
+</head>
+<body>
+    <header class="seitenkopf">
+        <a class="logo" href="./">Rezept Share</a>
+        <nav id="hauptnavigation" class="hauptnavigation" aria-label="Hauptnavigation" hidden>
+            <button class="nav-button aktiv" type="button" data-ansicht="rezepte"><svg class="nav-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 10h30v44H18a6 6 0 0 1-6-6V16a6 6 0 0 1 6-6Z"/><path d="M20 10v44M12 44h8M28 37h12M28 44h9M29 29v-5a5 5 0 0 1 1-10 5 5 0 0 1 9 0 5 5 0 0 1 1 10v5Z"/></svg><span>Rezepte</span></button>
+            <button class="nav-button" type="button" data-ansicht="hinzufuegen"><span aria-hidden="true">＋</span><span>Hinzufügen</span></button>
+            <button class="nav-button" type="button" data-ansicht="gruppen" aria-label="Gruppen"><svg class="nav-icon" viewBox="0 0 64 48" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><circle cx="32" cy="12" r="8"/><circle cx="12" cy="17" r="6.5"/><circle cx="52" cy="17" r="6.5"/><path d="M17 44c0-18 30-18 30 0M2 41c0-10 8-15 16-11M62 41c0-10-8-15-16-11"/></svg><span class="gruppen-nav-text">Gruppen</span></button>
+        </nav>
+        <div id="benutzer-menue" class="benutzer-menue" hidden>
+            <button id="profil-button" class="profil-button" type="button" aria-expanded="false" aria-controls="profil-auswahl">
+                <img id="kopf-profilbild" class="profilbild" src="assets/profil-standard.svg" alt=""><span class="nur-screenreader">Benutzermenü öffnen</span>
+            </button>
+            <div id="profil-auswahl" class="profil-auswahl" hidden>
+                <p id="benutzer-name" class="benutzer-name"></p>
+                <p id="benutzer-email" class="benutzer-email"></p>
+                <button id="konto-einstellungen" class="sekundaer-button" type="button">Accounteinstellungen</button>
+                <button id="abmelden-button" class="sekundaer-button" type="button">Abmelden</button>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section id="landing-bereich">
+            <div class="hero">
+                <p class="eyebrow">Rezepte für deine Lieblingsmenschen</p>
+                <h1>Aufschreiben, teilen, gemeinsam kochen.</h1>
+                <p>Ein einfacher Ort für eure Familienrezepte – mit Fotos, Nährwerten und gemeinsamen Gruppen.</p>
+            </div>
+            <div id="einladungs-hinweis" class="hinweis" hidden>
+                Du wurdest zu einer Rezeptgruppe eingeladen. Melde dich mit der eingeladenen E-Mail-Adresse an oder erstelle ein Konto.
+            </div>
+            <div class="auth-bereiche">
+                <form id="anmelde-formular" class="karte">
+                    <h2>Anmelden</h2>
+                    <label for="anmelde-email">E-Mail-Adresse</label>
+                    <input id="anmelde-email" type="email" autocomplete="email" required>
+                    <label for="anmelde-passwort">Passwort</label>
+                    <input id="anmelde-passwort" type="password" autocomplete="current-password" required>
+                    <button type="submit">Anmelden</button>
+                </form>
+                <form id="registrier-formular" class="karte">
+                    <h2>Konto erstellen</h2>
+                    <label for="registrier-name">Dein Anzeigename</label>
+                    <input id="registrier-name" type="text" maxlength="60" autocomplete="name" required>
+                    <label for="registrier-email">E-Mail-Adresse</label>
+                    <input id="registrier-email" type="email" autocomplete="email" required>
+                    <label for="registrier-passwort">Passwort</label>
+                    <input id="registrier-passwort" type="password" autocomplete="new-password" minlength="8" required>
+                    <small>Mindestens 8 Zeichen</small>
+                    <div
+                        class="h-captcha"
+                        data-sitekey="5e00ae44-ffd2-45d6-8a28-224a8dbae75c">
+                    </div>
+                    <button type="submit">Konto erstellen</button>
+                </form>                    
+            </div>
+            <p id="auth-meldung" class="fehlermeldung" aria-live="polite"></p>
+        </section>
+
+        <div id="app-bereich" hidden>
+            <section id="gruppen-kontext" class="gruppen-kontext">
+                <label class="nur-screenreader" for="gruppen-auswahl">Gruppe auswählen</label>
+                <select id="gruppen-auswahl"></select>
+            </section>
+
+            <section id="rezepte-ansicht" class="app-ansicht" aria-labelledby="liste-ueberschrift">
+                <div class="ansicht-kopf">
+                    <div class="ansicht-titel">
+                        <h2 id="liste-ueberschrift" class="nur-screenreader">Rezepte</h2>
+                        <span id="rezept-anzahl" class="anzahl-badge"></span>
+                    </div>
+                    <div class="rezept-werkzeuge">
+                        <label class="suchfeld rezept-suchfeld" for="rezept-suche">
+                            <span aria-hidden="true">⌕</span>
+                            <input id="rezept-suche" type="search" placeholder="Rezepte suchen" aria-label="Rezepte nach Namen suchen">
+                        </label>
+                        <div class="sortierung">
+                            <button id="sortier-button" class="sortier-button" type="button" aria-label="Rezepte sortieren" aria-haspopup="menu" aria-expanded="false" aria-controls="sortier-menue">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+                            </button>
+                            <button id="sortier-richtung" class="sortier-button" type="button" aria-label="Sortierrichtung wechseln">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16m-6-6 6 6 6-6"/></svg>
+                            </button>
+                            <div id="sortier-menue" class="sortier-menue" role="menu" aria-label="Sortierung" hidden></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="rezept-statistik" class="rezept-statistik">
+                    <span id="aktive-mitglieder-anzahl" class="anzahl-badge" hidden></span>
+                </div>
+                <div id="rezept-liste" class="rezept-raster"></div>
+            </section>
+
+            <section id="hinzufuegen-ansicht" class="karte app-ansicht" aria-labelledby="formular-ueberschrift" hidden>
+                <h2 id="formular-ueberschrift" class="nur-screenreader">Rezept hinzufügen</h2>
+                <form id="rezept-formular">
+                    <label for="rezept-name">Rezeptname</label>
+                    <input id="rezept-name" type="text" maxlength="120" required>
+                    <label for="rezept-text">Zutaten und Zubereitung</label>
+                    <textarea id="rezept-text" rows="8" required></textarea>
+                    <label for="rezept-bild">Foto (optional)</label>
+                    <input id="rezept-bild" type="file" accept="image/jpeg,image/png,image/webp">
+                    <small id="bild-hinweis">JPEG, PNG oder WebP, maximal 5 MB</small>
+                    <fieldset>
+                        <legend>Nährwerte pro Portion (optional)</legend>
+                        <div class="naehrwerte-felder">
+                            <label>Kalorien (kcal)<input id="kalorien" type="number" min="0" step="1"></label>
+                            <label>Protein (g)<input id="protein" type="number" min="0" step="0.1"></label>
+                            <label>Kohlenhydrate (g)<input id="kohlenhydrate" type="number" min="0" step="0.1"></label>
+                            <label>Fett (g)<input id="fett" type="number" min="0" step="0.1"></label>
+                        </div>
+                    </fieldset>
+                    <p id="rezept-meldung" class="fehlermeldung" aria-live="polite"></p>
+                    <div class="formular-aktionen">
+                        <button id="speichern-button" class="primaer-button" type="submit">Rezept hinzufügen</button>
+                        <button id="abbrechen-button" class="sekundaer-button" type="button" hidden>Bearbeiten abbrechen</button>
+                    </div>
+                </form>
+            </section>
+
+            <section id="gruppen-ansicht" class="app-ansicht" hidden>
+                <div class="gruppen-kopf">
+                    <div><p class="eyebrow">Deine Sammlung</p><h2>Gruppen</h2></div>
+                    <button id="neue-gruppe-button" type="button">＋ Neue Gruppe</button>
+                </div>
+                <form id="gruppen-formular" class="karte zeilen-formular" hidden>
+                    <label class="nur-screenreader" for="gruppen-name">Gruppenname</label>
+                    <input id="gruppen-name" type="text" maxlength="80" placeholder="Name der neuen Gruppe" required>
+                    <label class="checkbox-zeile"><input id="gruppe-nur-ansehen" type="checkbox"> Neue Mitglieder dürfen nur Rezepte ansehen</label>
+                    <button type="submit">Erstellen</button>
+                    <button id="gruppe-erstellen-abbrechen" class="sekundaer-button" type="button">Abbrechen</button>
+                </form>
+                <div id="gruppen-liste" class="gruppen-liste"></div>
+                <p id="gruppen-meldung" class="fehlermeldung" aria-live="polite"></p>
+            </section>
+        </div>
+    </main>
+
+    <dialog id="rezept-detail-dialog" class="dialog rezept-dialog">
+        <button id="rezept-detail-schliessen" class="dialog-schliessen" type="button" aria-label="Rezept schließen">×</button>
+        <div id="rezept-detail-inhalt"></div>
+        <div class="dialog-aktionen">
+            <button id="rezept-bearbeiten-button" class="primaer-button" type="button">Bearbeiten</button>
+            <button id="rezept-kopieren-button" class="sekundaer-button kopier-button" type="button" aria-label="Rezept kopieren" title="Rezept kopieren">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h3"/></svg>
+            </button>
+            <button id="rezept-loeschen-button" class="gefahr-button" type="button">Löschen</button>
+        </div>
+        <p id="kopier-meldung" role="status" aria-live="polite" hidden></p>
+    </dialog>
+
+    <dialog id="bestaetigungs-dialog" class="dialog bestaetigungs-dialog">
+        <h2 id="bestaetigungs-titel"></h2>
+        <p id="bestaetigungs-text"></p>
+        <div class="dialog-aktionen">
+            <button id="bestaetigung-abbrechen" class="sekundaer-button" type="button">Abbrechen</button>
+            <button id="bestaetigung-ok" type="button">Bestätigen</button>
+        </div>
+    </dialog>
+
+    <dialog id="profil-dialog" class="dialog bestaetigungs-dialog">
+        <button id="profil-schliessen" class="dialog-schliessen" type="button" aria-label="Accounteinstellungen schließen">×</button>
+        <h2 id="profil-titel">Dein Profilbild</h2>
+        <p id="profil-hinweis">Wähle ein Foto aus oder lege es später fest.</p>
+        <form id="profil-formular">
+            <label for="profil-name">Anzeigename</label>
+            <input id="profil-name" type="text" maxlength="60" required>
+            <div class="profil-fotobereich">
+                <img id="profil-vorschau" class="profilbild profilbild-gross" src="assets/profil-standard.svg" alt="Profilbild-Vorschau">
+                <div class="profil-fotoaktionen">
+                    <button id="profil-foto-aendern" class="sekundaer-button" type="button">Profilbild ändern</button>
+                    <input id="profil-datei" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Profilbild ändern" hidden>
+                </div>
+            </div>
+            <p id="profil-meldung" class="fehlermeldung" aria-live="polite"></p>
+            <div class="dialog-aktionen">
+                <button class="primaer-button" type="submit">Speichern</button>
+                <button id="profil-abbrechen" class="sekundaer-button" type="button">Abbrechen</button>
+                <button id="konto-loeschen-oeffnen" class="gefahr-button" type="button">Konto löschen</button>
+                <button id="profil-spaeter" class="sekundaer-button" type="button">später festlegen</button>
+            </div>
+        </form>
+    </dialog>
+    <dialog id="konto-loeschen-dialog" class="dialog bestaetigungs-dialog">
+        <h2>Konto dauerhaft löschen?</h2>
+        <p>Dein Profil, deine privaten Rezepte und Gruppen ohne weitere Personen werden gelöscht. Geteilte Rezepte bleiben unter „Gelöschtes Konto“ erhalten.</p>
+        <div id="admin-nachfolge"></div>
+        <form id="konto-loeschen-formular">
+            <label for="loesch-passwort">Zur Bestätigung dein Passwort</label>
+            <input id="loesch-passwort" type="password" autocomplete="current-password" required>
+            <label class="checkbox-zeile"><input id="loesch-bestaetigung" type="checkbox" required> Ich möchte mein Konto dauerhaft löschen.</label>
+            <p id="loesch-meldung" class="fehlermeldung" aria-live="polite"></p>
+            <div class="dialog-aktionen">
+                <button id="konto-loeschen-abbrechen" class="sekundaer-button" type="button">Abbrechen</button>
+                <button class="gefahr-button" type="submit">Konto endgültig löschen</button>
+            </div>
+        </form>
+    </dialog>
+    <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
+</body>
+</html>
+

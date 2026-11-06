@@ -1,0 +1,10 @@
+[functions.rezept-speichern]
+verify_jwt = false
+
+[functions.konto-loeschen]
+verify_jwt = false
+# Beide Funktionen validieren das JWT selbst über auth.getUser().
+# Dies unterstützt auch die aktuellen Publishable Keys.
+
+[functions.gruppe-loeschen]
+verify_jwt = false
