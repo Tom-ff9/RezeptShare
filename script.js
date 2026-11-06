@@ -875,24 +875,46 @@ navigationsButtons.forEach(function (button) {
     button.addEventListener("click", function () { ansichtSicherWechseln(button.dataset.ansicht); });
 });
 
+
 anmeldeFormular.addEventListener("submit", async function (event) {
     event.preventDefault();
+
     authMeldung.textContent = "";
     authMeldung.classList.remove("erfolgsmeldung");
+
     try {
+        // CAPTCHA im Anmeldeformular finden
+        const captchaElement = anmeldeFormular.querySelector(".h-captcha");
+
+        // Den zugehörigen CAPTCHA-Token auslesen
+        const captchaToken = hcaptcha.getResponse(
+            hcaptcha.getWidgetId(captchaElement)
+        );
+
+        if (!captchaToken) {
+            authMeldung.textContent = "Bitte bestätige zuerst das CAPTCHA.";
+            return;
+        }
+
         const daten = datenAusErgebnis(
             await supabaseClient.auth.signInWithPassword({
                 email: document.querySelector("#anmelde-email").value.trim(),
-                password: document.querySelector("#anmelde-passwort").value
+                password: document.querySelector("#anmelde-passwort").value,
+                options: {
+                    captchaToken: captchaToken
+                }
             }),
             "Die Anmeldung ist fehlgeschlagen."
         );
+
         aktiverBenutzer = await benutzerAusSitzungLaden(daten.user);
         await angemeldeteAppLaden();
+
     } catch (fehler) {
         authMeldung.textContent = fehler.message;
     }
 });
+
 
 
 registrierFormular.addEventListener("submit", async function (event) {
