@@ -1,18 +1,3 @@
-let anmeldeCaptchaId;
-let registrierCaptchaId;
-
-function captchaInitialisieren() {
-    anmeldeCaptchaId = hcaptcha.render(
-        document.querySelector("#anmelde-formular .h-captcha")
-    );
-
-    registrierCaptchaId = hcaptcha.render(
-        document.querySelector("#registrier-formular .h-captcha")
-    );
-}
-
-// Damit die hCaptcha-API die Funktion aufrufen kann
-window.captchaInitialisieren = captchaInitialisieren;
 
 
 const landingBereich = document.querySelector("#landing-bereich");
@@ -905,7 +890,7 @@ anmeldeFormular.addEventListener("submit", async function (event) {
             throw new Error("CAPTCHA wurde noch nicht geladen.");
         }
 
-        const captchaToken = hcaptcha.getResponse(anmeldeCaptchaId);
+        const captchaToken = hcaptcha.getResponse(window.anmeldeCaptchaId);
 
         if (!captchaToken) {
             throw new Error("Bitte bestätige zuerst das CAPTCHA.");

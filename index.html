@@ -44,6 +44,18 @@
         </div>
     </header>
 
+<script>
+    window.captchaInitialisieren = function () {
+        window.anmeldeCaptchaId = hcaptcha.render(
+            document.querySelector("#anmelde-formular .h-captcha")
+        );
+
+        window.registrierCaptchaId = hcaptcha.render(
+            document.querySelector("#registrier-formular .h-captcha")
+        );
+    };
+</script>
+
     <main>
         <section id="landing-bereich">
             <div class="hero">
@@ -225,7 +237,7 @@
             </div>
         </form>
     </dialog>
-    <script src="https://js.hcaptcha.com/1/api.js?render=explicit&onload=captchaInitialisieren" async defer></script>
+<script src="https://js.hcaptcha.com/1/api.js?render=explicit&onload=captchaInitialisieren" defer></script>
 </body>
 </html>
 
