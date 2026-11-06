@@ -1,3 +1,18 @@
+
+function captchaInitialisieren() {
+    anmeldeCaptchaId = hcaptcha.render(
+        document.querySelector("#anmelde-formular .h-captcha")
+    );
+
+    registrierCaptchaId = hcaptcha.render(
+        document.querySelector("#registrier-formular .h-captcha")
+    );
+}
+
+// Damit die hCaptcha-API die Funktion aufrufen kann
+window.captchaInitialisieren = captchaInitialisieren;
+
+
 const landingBereich = document.querySelector("#landing-bereich");
 const appBereich = document.querySelector("#app-bereich");
 const hauptnavigation = document.querySelector("#hauptnavigation");
@@ -13,6 +28,8 @@ const benutzerEmail = document.querySelector("#benutzer-email");
 
 const anmeldeFormular = document.querySelector("#anmelde-formular");
 const registrierFormular = document.querySelector("#registrier-formular");
+let anmeldeCaptchaId;
+let registrierCaptchaId;
 const authMeldung = document.querySelector("#auth-meldung");
 const einladungsHinweis = document.querySelector("#einladungs-hinweis");
 const profilDialog = document.querySelector("#profil-dialog");
@@ -876,6 +893,7 @@ navigationsButtons.forEach(function (button) {
 });
 
 
+
 anmeldeFormular.addEventListener("submit", async function (event) {
     event.preventDefault();
 
@@ -883,17 +901,14 @@ anmeldeFormular.addEventListener("submit", async function (event) {
     authMeldung.classList.remove("erfolgsmeldung");
 
     try {
-        // CAPTCHA im Anmeldeformular finden
-        const captchaElement = anmeldeFormular.querySelector(".h-captcha");
+        if (anmeldeCaptchaId === undefined) {
+            throw new Error("CAPTCHA wurde noch nicht geladen.");
+        }
 
-        // Den zugehörigen CAPTCHA-Token auslesen
-        const captchaToken = hcaptcha.getResponse(
-            hcaptcha.getWidgetId(captchaElement)
-        );
+        const captchaToken = hcaptcha.getResponse(anmeldeCaptchaId);
 
         if (!captchaToken) {
-            authMeldung.textContent = "Bitte bestätige zuerst das CAPTCHA.";
-            return;
+            throw new Error("Bitte bestätige zuerst das CAPTCHA.");
         }
 
         const daten = datenAusErgebnis(
@@ -912,6 +927,9 @@ anmeldeFormular.addEventListener("submit", async function (event) {
 
     } catch (fehler) {
         authMeldung.textContent = fehler.message;
+        if (anmeldeCaptchaId !== undefined) {
+            hcaptcha.reset(anmeldeCaptchaId);
+        }
     }
 });
 
@@ -934,7 +952,7 @@ registrierFormular.addEventListener("submit", async function (event) {
 
     try {
         // CAPTCHA-Token auslesen
-        const captchaToken = hcaptcha.getResponse();
+        const captchaToken = hcaptcha.getResponse(registrierCaptchaId);
 
         if (!captchaToken) {
             authMeldung.textContent = "Bitte bestätige zuerst das CAPTCHA.";
