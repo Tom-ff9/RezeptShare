@@ -1,5 +1,7 @@
-name: GitHub Pages manuell veröffentlichen
+name: GitHub Pages veröffentlichen
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read

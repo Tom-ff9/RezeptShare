@@ -15,6 +15,11 @@ const statischeDateien = {
     "/gruppen.js": ["gruppen.js", "text/javascript; charset=utf-8"],
     "/funktionen.js": ["funktionen.js", "text/javascript; charset=utf-8"],
     "/assets/profil-standard.svg": ["assets/profil-standard.svg", "image/svg+xml"],
+    "/manifest.webmanifest": ["manifest.webmanifest", "application/manifest+json"],
+    "/assets/icons/favicon-32.png": ["assets/icons/favicon-32.png", "image/png"],
+    "/assets/icons/apple-touch-icon.png": ["assets/icons/apple-touch-icon.png", "image/png"],
+    "/assets/icons/icon-192.png": ["assets/icons/icon-192.png", "image/png"],
+    "/assets/icons/icon-512.png": ["assets/icons/icon-512.png", "image/png"],
     "/captcha.js": ["captcha.js", "text/javascript; charset=utf-8"],
     "/script.js": ["script.js", "text/javascript; charset=utf-8"]
 };
