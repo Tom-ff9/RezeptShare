@@ -1,15 +1,21 @@
-data/*.sqlite
-data/*.sqlite-shm
-data/*.sqlite-wal
-.DS_Store
-
+# Lokale Daten und Zugangsdaten
+data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+.env
+.env.*
+!.env.example
+*.pem
+*.key
 supabase/.temp/
-
+supabase/.branches/
+.aws/
+# Generierte Dateien
 node_modules/
-.env
-.env.*
-!.env.example
-
-.env
-.env.*
-!.env.example
+dist/
+playwright-report/
+test-results/
+coverage/
+.DS_Store

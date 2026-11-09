@@ -9,13 +9,12 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
         await page.route('https://**/*', route => {
             const url = route.request().url();
             if (url.includes('cdn.jsdelivr.net')) return route.fulfill({contentType:'application/javascript',body:`
-                window.authCalls = [];
+                window.authCalls = []; window.signupSession = false;
                 window.supabase = {createClient:()=>({auth:{
                     getSession:async()=>({data:{session:null}}),
                     signInWithPassword:async args=>{authCalls.push(args);return {error:{message:'Invalid login credentials'}};},
-                    signUp:async args=>{authCalls.push(args);return {data:{session:null}};},
-                    resend:async args=>{authCalls.push(args);return {};}
-                }})};`});
+                    signUp:async args=>{authCalls.push(args);return {data:{session:window.signupSession ? {user:{id:'new-user',email:args.email}} : null}};},
+                }, from:()=>({select:()=>({eq:()=>({single:async()=>({data:{id:'new-user',anzeigename:'Test',bild_pfad:null,profilbild_festgelegt:false}})})})})})};`});
             if (url.includes('js.hcaptcha.com/1/api.js')) return route.fulfill({contentType:'application/javascript',body:`
                 window.fakeCaptcha = [];
                 window.hcaptcha = {
@@ -48,17 +47,23 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
         await page.locator('#registrier-passwort').fill('test-password');
         await page.evaluate(()=>{fakeCaptcha[1].token='signup';});
         await page.locator('#registrier-formular button[type=submit]').click();
-        await page.getByRole('heading',{name:'E-Mail bestätigen',exact:true}).waitFor();
-        assert.equal(await page.locator('#bestaetigungs-email').inputValue(),'test@example.test');
+        await page.getByText(/Die Registrierung konnte nicht abgeschlossen werden/).waitFor();
+        assert.equal(await page.locator('#bestaetigungs-email-formular').count(),0);
         await page.setViewportSize({width:375,height:812});
         assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-        await page.screenshot({path:'/tmp/rezept-auth-bestaetigung-mobile.png',fullPage:true});
+        await page.screenshot({path:'/tmp/rezept-auth-registrierung-mobile.png',fullPage:true});
         await page.keyboard.press('Escape');
         await page.getByRole('button',{name:'Anmelden',exact:true}).click();
         await page.screenshot({path:'/tmp/rezept-auth-anmeldung-mobile.png',fullPage:true});
         await page.mouse.click(3,3);
         assert.equal(await page.locator('#auth-dialog').isVisible(),false);
+        await page.getByRole('button',{name:'Registrieren',exact:true}).click();
+        await page.locator('#registrier-passwort').fill('test-password');
+        await page.evaluate(()=>{window.signupSession=true;fakeCaptcha[1].token='signup-success';});
+        await page.locator('#registrier-formular button[type=submit]').click();
+        await page.getByRole('heading',{name:'Dein Profilbild',exact:true}).waitFor();
+        assert.equal(await page.locator('#auth-dialog').isVisible(),false);
         assert.deepEqual(errors,[]);
-        console.log('Browser-Auth erfolgreich: Landingpage, Dialoge, Passwortfehler/erneutes CAPTCHA, Registrierung, Bestätigung, Mobile-Layout, Escape und Hintergrundklick (Supabase/CAPTCHA gemockt).');
+        console.log('Browser-Auth erfolgreich: Landingpage, Dialoge, Passwortfehler/erneutes CAPTCHA, Registrierung ohne Sitzung, direktes Profil-Onboarding, Mobile-Layout, Escape und Hintergrundklick (Supabase/CAPTCHA gemockt).');
     } finally { await browser.close(); }
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -75,10 +75,11 @@ function mockInstall() {
     assert.ok((await page.evaluate(()=>mockState.profile.bild_pfad)).endsWith('.png'));
     await page.locator('#profil-button').click();
     await page.getByRole('button',{name:'Accounteinstellungen',exact:true}).click();
-    await page.getByRole('button',{name:'Foto entfernen',exact:true}).click();
+    assert.equal(await page.getByRole('button',{name:'Foto entfernen',exact:true}).count(),0);
+    const retainedPhoto = await page.evaluate(()=>mockState.profile.bild_pfad);
     await page.locator('#profil-formular').getByRole('button',{name:'Speichern',exact:true}).click();
     await page.locator('#profil-dialog').waitFor({state:'hidden'});
-    assert.equal(await page.evaluate(()=>mockState.profile.bild_pfad),null);
+    assert.equal(await page.evaluate(()=>mockState.profile.bild_pfad),retainedPhoto);
     // Gesamtliste mit unterschiedlichen Gruppenrechten; Zielgruppe beim Bearbeiten/Hinzufügen.
     await page.evaluate(async()=>{
         mockState.extraGroups=[{...mockState.group,id:8,name:'Nur lesen',rolle:'beobachter'}];
@@ -119,10 +120,10 @@ function mockInstall() {
             const select=document.querySelector('#gruppen-auswahl').getBoundingClientRect();
             const box=document.querySelector('#gruppen-kontext').getBoundingClientRect();
             return {equalWidth:Math.abs(save.width-select.width)<1,equalHeight:Math.abs(save.height-select.height)<1,
-                right:select.left>save.right,wholeBox:Math.abs(box.width-select.width)<1 && Math.abs(box.height-select.height)<1,
+                position:innerWidth<=600 ? select.bottom<=save.top : select.left>save.right,wholeBox:Math.abs(box.width-select.width)<1 && Math.abs(box.height-select.height)<1,
                 hit:document.elementFromPoint(select.left+3,select.top+3)?.id};
         });
-        assert.deepEqual(bounds,{equalWidth:true,equalHeight:true,right:true,wholeBox:true,hit:'gruppen-auswahl'});
+        assert.deepEqual(bounds,{equalWidth:true,equalHeight:true,position:true,wholeBox:true,hit:'gruppen-auswahl'});
     }
     await page.screenshot({path:'/tmp/rezept-share-gruppenauswahl-unten.png',fullPage:true});
     await page.evaluate(()=>{gruppen.push({id:9,name:'Weitere Gruppe',rolle:'mitglied'});gruppenAuswahlAktualisieren();});

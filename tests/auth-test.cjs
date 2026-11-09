@@ -23,8 +23,7 @@ function element(id = '') {
         aktiverBenutzer: null, benutzerAusSitzungLaden: async user => user, angemeldeteAppLaden: async () => {}, fehlerText: e => e.message,
         supabaseClient: { auth: {
             signInWithPassword: async () => { apiCalls++; return { error: { message: 'Falsches Passwort' } }; },
-            signUp: async () => ({ data: { session: null } }),
-            resend: async () => ({ error: null })
+            signUp: async () => ({ data: { session: null } })
         } }
     });
     vm.runInContext(fs.readFileSync('captcha.js', 'utf8'), context);
@@ -37,7 +36,6 @@ function element(id = '') {
     assert.deepEqual(resets, [0]); // Widget-ID 0 ist gültig.
     const source = fs.readFileSync('script.js', 'utf8');
     vm.runInContext(source.slice(source.indexOf('const authDialog ='), source.indexOf('abmeldenButton.addEventListener')), context);
-    assert.equal(context.authRedirectUrl(), 'https://example.test/rezept-share/?einladung=invite');
     context.authFormularOeffnen('anmelden');
     assert.equal(context.anmeldeFormular.hidden, false);
     assert.equal(context.registrierFormular.hidden, true);
@@ -61,23 +59,28 @@ function element(id = '') {
     assert.equal(apiCalls, 3); // Doppelklick ist gesperrt.
     resolve({ error: { code: 'email_not_confirmed' } });
     await running;
-    assert.match(context.authMeldung.textContent, /bestätige zuerst/);
+    assert.match(context.authMeldung.textContent, /nicht freigeschaltet/);
     context.authFormularOeffnen('registrieren');
     get('#registrier-name').value = 'Test'; get('#registrier-email').value = 'person@example.test'; get('#registrier-passwort').value = 'password';
     token = 'signup-1';
     await context.registrierFormular.handlers.submit({ preventDefault() {} });
-    assert.equal(get('#bestaetigungs-email-formular').hidden, false);
-    assert.equal(get('#bestaetigungs-email').value, 'person@example.test');
+    assert.match(context.authMeldung.textContent, /Registrierung konnte nicht abgeschlossen/);
+    assert.equal(context.aktiverBenutzer, null);
+    assert.equal(get('#auth-dialog').open, true);
+    let loaded = 0;
+    context.angemeldeteAppLaden = async () => { loaded++; };
+    context.supabaseClient.auth.signUp = async args => {
+        assert.equal(args.options.emailRedirectTo, undefined);
+        assert.equal(args.options.captchaToken, 'signup-2');
+        return { data: { session: { user: {id:'new-user'} } } };
+    };
+    get('#registrier-passwort').value = 'password';
+    token = 'signup-2';
+    await context.registrierFormular.handlers.submit({ preventDefault() {} });
+    assert.equal(context.aktiverBenutzer.id, 'new-user');
+    assert.equal(loaded, 1);
+    assert.equal(get('#auth-dialog').open, false);
     assert.equal(get('#registrier-passwort').value, '');
-    vm.runInContext('erneutSendenAb = 0', context);
-    let sent;
-    context.supabaseClient.auth.resend = async args => { sent = args; return {}; };
-    token = 'resend-1';
-    await get('#bestaetigungs-email-formular').handlers.submit({ preventDefault() {} });
-    assert.equal(sent.options.captchaToken, 'resend-1');
-    assert.equal(sent.type, 'signup');
-    assert.equal(token, '');
-    await get('#bestaetigungs-email-formular').handlers.submit({ preventDefault() {} });
-    assert.match(context.authMeldung.textContent, /Sekunden/);
-    console.log('Auth-Tests erfolgreich: Widget 0, Ablauf, Einmal-Token, falsches Passwort/erneuter Versuch, Doppelklick, Formularwechsel, Bestätigung, erneuter Versand und sichere Redirect-URL.');
+    console.log('Auth-Tests erfolgreich: Einmal-CAPTCHA, Wiederholung, Doppelklick, direkte Registrierung und fehlende Sitzung.');
+
 })().catch(error => { console.error(error); process.exitCode = 1; });
