@@ -57,36 +57,11 @@
             <div id="einladungs-hinweis" class="hinweis" hidden>
                 Du wurdest zu einer Rezeptgruppe eingeladen. Melde dich mit der eingeladenen E-Mail-Adresse an oder erstelle ein Konto.
             </div>
-            <div class="auth-bereiche">
-                <form id="anmelde-formular" class="karte">
-                    <h2>Anmelden</h2>
-                    <label for="anmelde-email">E-Mail-Adresse</label>
-                    <input id="anmelde-email" type="email" autocomplete="email" required>
-                    <label for="anmelde-passwort">Passwort</label>
-                    <input id="anmelde-passwort" type="password" autocomplete="current-password" required>
-                    <div
-                        class="h-captcha"
-                        data-sitekey="5e00ae44-ffd2-45d6-8a28-224a8dbae75c">
-                    </div>
-                    <button type="submit">Anmelden</button>
-                </form>
-                <form id="registrier-formular" class="karte">
-                    <h2>Konto erstellen</h2>
-                    <label for="registrier-name">Dein Anzeigename</label>
-                    <input id="registrier-name" type="text" maxlength="60" autocomplete="name" required>
-                    <label for="registrier-email">E-Mail-Adresse</label>
-                    <input id="registrier-email" type="email" autocomplete="email" required>
-                    <label for="registrier-passwort">Passwort</label>
-                    <input id="registrier-passwort" type="password" autocomplete="new-password" minlength="8" required>
-                    <small>Mindestens 8 Zeichen</small>
-                    <div
-                        class="h-captcha"
-                        data-sitekey="5e00ae44-ffd2-45d6-8a28-224a8dbae75c">
-                    </div>
-                    <button type="submit">Konto erstellen</button>
-                </form>                    
+            <div class="landing-aktionen">
+                <button type="button" class="primaer-button" data-auth-ansicht="anmelden">Anmelden</button>
+                <button type="button" class="sekundaer-button" data-auth-ansicht="registrieren">Registrieren</button>
             </div>
-            <p id="auth-meldung" class="fehlermeldung" aria-live="polite"></p>
+            <p id="landing-meldung" class="fehlermeldung" role="status"></p>
         </section>
 
         <div id="app-bereich" hidden>
@@ -167,6 +142,52 @@
             </section>
         </div>
     </main>
+
+    <dialog id="auth-dialog" class="dialog auth-dialog" aria-labelledby="auth-titel">
+        <button id="auth-schliessen" class="dialog-schliessen" type="button" aria-label="Schließen">×</button>
+        <h2 id="auth-titel">Anmelden</h2>
+                <form id="anmelde-formular" hidden>
+                    
+                    <label for="anmelde-email">E-Mail-Adresse</label>
+                    <input id="anmelde-email" type="email" autocomplete="email" required>
+                    <label for="anmelde-passwort">Passwort</label>
+                    <input id="anmelde-passwort" type="password" autocomplete="current-password" required>
+                    <div
+                        class="h-captcha"
+                        data-sitekey="5e00ae44-ffd2-45d6-8a28-224a8dbae75c">
+                    </div>
+                    <button class="primaer-button" type="submit">Anmelden</button>
+                    <button type="button" class="auth-link" data-auth-ansicht="bestaetigen">Bestätigungs-E-Mail erneut senden</button>
+                </form>
+                <form id="registrier-formular" hidden>
+                    
+                    <label for="registrier-name">Dein Anzeigename</label>
+                    <input id="registrier-name" type="text" maxlength="60" autocomplete="name" required>
+                    <label for="registrier-email">E-Mail-Adresse</label>
+                    <input id="registrier-email" type="email" autocomplete="email" required>
+                    <label for="registrier-passwort">Passwort</label>
+                    <input id="registrier-passwort" type="password" autocomplete="new-password" minlength="8" required>
+                    <small>Mindestens 8 Zeichen</small>
+                    <div
+                        class="h-captcha"
+                        data-sitekey="5e00ae44-ffd2-45d6-8a28-224a8dbae75c">
+                    </div>
+                    <button class="primaer-button" type="submit">Konto erstellen</button>
+                </form>
+
+        <form id="bestaetigungs-email-formular" hidden>
+            <p>Bestätige deine E-Mail-Adresse über den Link in deinem Postfach. Prüfe auch den Spam-Ordner. Bei Bedarf kannst du hier einen neuen Link anfordern.</p>
+            <label for="bestaetigungs-email">E-Mail-Adresse</label>
+            <input id="bestaetigungs-email" type="email" autocomplete="email" required>
+            <div class="h-captcha" data-sitekey="5e00ae44-ffd2-45d6-8a28-224a8dbae75c"></div>
+            <button class="primaer-button" type="submit">Bestätigungs-E-Mail senden</button>
+        </form>
+        <p id="auth-meldung" class="fehlermeldung" aria-live="polite"></p>
+        <div class="auth-wechsel">
+            <button class="auth-link" type="button" data-auth-ansicht="anmelden">Zur Anmeldung</button>
+            <button class="auth-link" type="button" data-auth-ansicht="registrieren">Konto erstellen</button>
+        </div>
+    </dialog>
 
     <dialog id="rezept-detail-dialog" class="dialog rezept-dialog">
         <button id="rezept-detail-schliessen" class="dialog-schliessen" type="button" aria-label="Rezept schließen">×</button>

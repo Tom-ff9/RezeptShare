@@ -5,10 +5,11 @@
   "description": "Einfache Rezept-App für Familien und Gruppen",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check konfiguration.js && node --check script.js && node --check funktionen.js && node --check gruppen.js && node --check tests/projekt-test.js",
-    "test": "node tests/aenderungen-test.mjs && node tests/edge-test.mjs && node tests/projekt-test.js",
+    "check": "node --check server.js && node --check captcha.js && node --check konfiguration.js && node --check script.js && node --check funktionen.js && node --check gruppen.js && node --check tests/projekt-test.js && node --check tests/auth-test.cjs",
+    "test": "node tests/auth-test.cjs && node tests/aenderungen-test.mjs && node tests/edge-test.mjs && node tests/projekt-test.js",
     "test:db": "node tests/datenbank-test.mjs",
-    "test:browser": "node tests/browser-test.cjs"
+    "test:browser": "node tests/browser-test.cjs",
+    "test:auth:browser": "node tests/auth-browser-test.cjs"
   },
   "engines": {
     "node": ">=22.13.0"

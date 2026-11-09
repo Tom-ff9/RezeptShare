@@ -102,7 +102,7 @@ Diese Tests verwenden ausschließlich gemockte Supabase-Antworten. Screenshots l
 
 Mit vier Testkonten (Admin, Mitglied, Beobachter, gruppenfremde Person):
 
-1. Registrierung inklusive E-Mail-Bestätigung, Fotoauswahl und Überspringen testen. Foto-/Namenswechsel, Fotoentfernung und erneute Anmeldung prüfen; ungeeignete/zu große Dateien und fehlerhafte Uploads dürfen das alte Foto nicht ersetzen.
+1. Registrierung inklusive E-Mail-Bestätigung, Fotoauswahl und Überspringen testen. Foto-/Namenswechsel und erneute Anmeldung prüfen; ungeeignete/zu große Dateien und fehlerhafte Uploads dürfen das alte Foto nicht ersetzen.
 2. Beide Gruppeneinstellungen prüfen, auch Änderung zwischen Einladungserstellung und Annahme. Rollen vorhandener Personen müssen erhalten bleiben. Adminübertragung testen.
 3. Berechtigungen zusätzlich direkt über REST/Storage prüfen: Beobachter können weder Rezepte noch Bilder schreiben; Mitglieder können fremde Rezepte nicht löschen; interne RPCs sind für Browser-JWTs gesperrt. Nach Herabstufung darf ein schon geöffnetes Formular nicht speichern.
 4. Fremde und eigene Textänderungen, Einfügungen, Löschungen, Bild-/Nährwertwechsel, überlappende Bearbeitungen und zwei gleichzeitig geöffnete Editoren testen. Bei Versionskonflikten bleiben die Eingaben im Formular erhalten.
@@ -121,3 +121,21 @@ Mit vier Testkonten (Admin, Mitglied, Beobachter, gruppenfremde Person):
 - `tests/`: lokale Logik-, Edge-, Datenbank- und Browserprüfungen.
 
 Bilder sind privat und werden über zeitlich begrenzte Links angezeigt. Rezeptänderungen werden serverseitig berechnet und atomar mit Versionsprüfung gespeichert. Direkte Updates/Löschungen von Rezepten sind für Browserkonten gesperrt. Ersetzte Bilder werden nach erfolgreichem Speichern über die Storage API entfernt; bei einem Storage-Ausfall bleibt der neue Datensatz erhalten und die Dateibereinigung kann separat wiederholt werden. Die Kontolöschung prüft dagegen jeden Dateilöschschritt vor dem Löschen des Auth-Kontos.
+
+
+## Registrierung, CAPTCHA und Bestätigungs-E-Mails
+
+Die Landingpage öffnet Anmeldung und Registrierung in einem Dialog. CAPTCHA wird erst für das sichtbare Formular erstellt. Nach **jedem** Anmelde-, Registrierungs- oder Versandversuch wird genau dieses Widget zurückgesetzt. Ein verbrauchtes Token wird im Browser nicht erneut akzeptiert; parallele Auth-Anfragen sind gesperrt. Die eigentliche Botprüfung muss Supabase serverseitig erzwingen: Eine reine JavaScript-Prüfung verhindert keine direkten API-Aufrufe.
+
+Vor öffentlicher Freigabe im Supabase-Dashboard einrichten:
+
+1. Unter Authentication den CAPTCHA-Schutz mit **hCaptcha** aktivieren. Den geheimen hCaptcha-Schlüssel ausschließlich dort hinterlegen. Den öffentlichen Sitekey in den drei Widgets in `index.html` verwenden. Im hCaptcha-Dashboard die produktive Website-Domain zulassen.
+2. Einen eigenen SMTP-Anbieter einrichten, zum Beispiel Resend. Dafür beim Anbieter eine Absender-Domain verifizieren und dessen DNS-Einträge setzen. SMTP-Host, Port, Benutzer und Passwort sowie die Absenderadresse unter Authentication → Email/SMTP in Supabase hinterlegen. Diese Zugangsdaten gehören weder ins Frontend noch ins GitHub-Repository. Supabases Standard-Mailversand ist für öffentliche Registrierungen nicht geeignet.
+3. Unter Authentication → Providers/Sign In → Email **Confirm email** einschalten. Die Einstellung muss im gehosteten Projekt vorgenommen werden; ein Frontend-Deployment schaltet sie nicht ein. Bereits bestätigte Bestandskonten werden dadurch nicht nachträglich unbestätigt.
+4. Unter URL Configuration die endgültige Website-Adresse als **Site URL** und erlaubte Redirect URL eintragen. Bei GitHub Pages auch den Projektpfad berücksichtigen, etwa `https://BENUTZER.github.io/rezept-share/`. Einladung-Links verwenden zusätzlich `?einladung=…`; diese Variante gezielt zulassen. Lokale URLs nur für die Entwicklung hinzufügen. Keine beliebigen fremden Domains freigeben.
+5. Im E-Mail-Template den Supabase-Bestätigungslink (`{{ .ConfirmationURL }}`) beibehalten. Versandlimits und Spam-Schutz in Supabase konfigurieren; der 60-Sekunden-Abstand der Oberfläche ist nur eine Bedienhilfe, keine serverseitige Schutzmaßnahme.
+6. Mit einer echten Testadresse Registrierung → Postfach → Bestätigungslink → Profilbild-Schritt prüfen. Außerdem falsches Passwort mit anschließend neuem CAPTCHA, abgelaufene Links, erneuten Versand und den Einladungslink testen. Auch einen direkten Auth-Aufruf ohne/mit ungültigem CAPTCHA im separaten Testprojekt prüfen: Er muss serverseitig abgewiesen werden.
+
+Die Website zeigt bei ausstehender Bestätigung einen Postfach-Hinweis und bietet einen erneuten Versand mit eigenem CAPTCHA an. Fehlerhafte Rückleitungslinks öffnen diesen Dialog; Passwort- und Session-Tokens werden nicht in neue Redirect-URLs übernommen. Gültige Rückleitungen werden von der vorhandenen Supabase-Sitzungserkennung verarbeitet. SMTP und die gehosteten Auth-Einstellungen müssen separat bereitgestellt werden.
+
+Prüfung der Auth-Logik ohne Live-Zugang: `node tests/auth-test.cjs`. Die Tests simulieren CAPTCHA und Supabase; sie ersetzen keinen echten E-Mail-/CAPTCHA-Test.

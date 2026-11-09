@@ -15,6 +15,7 @@ const statischeDateien = {
     "/gruppen.js": ["gruppen.js", "text/javascript; charset=utf-8"],
     "/funktionen.js": ["funktionen.js", "text/javascript; charset=utf-8"],
     "/assets/profil-standard.svg": ["assets/profil-standard.svg", "image/svg+xml"],
+    "/captcha.js": ["captcha.js", "text/javascript; charset=utf-8"],
     "/script.js": ["script.js", "text/javascript; charset=utf-8"]
 };
 

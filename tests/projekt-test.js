@@ -50,7 +50,7 @@ async function testAusfuehren() {
 
     try {
         await aufServerWarten();
-        for (const datei of ["/", "/style.css", "/konfiguration.js", "/script.js", "/funktionen.js", "/gruppen.js", "/assets/profil-standard.svg"]) {
+        for (const datei of ["/", "/captcha.js", "/style.css", "/konfiguration.js", "/script.js", "/funktionen.js", "/gruppen.js", "/assets/profil-standard.svg"]) {
             const antwort = await fetch(basisUrl + datei);
             assert.equal(antwort.status, 200, datei + " sollte erreichbar sein");
         }

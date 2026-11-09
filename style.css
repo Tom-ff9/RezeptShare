@@ -440,3 +440,20 @@ body:has(#rezept-detail-dialog[open]) { overflow: hidden; }
     .rezept-anleitung { margin-top: 28px; }
     #rezept-detail-inhalt .rezept-text { font-size: 16px; }
 }
+
+.landing-aktionen { display: flex; flex-wrap: wrap; gap: 12px; }
+.landing-aktionen button { min-height: 46px; padding-inline: 24px; }
+.auth-dialog { width: min(460px, calc(100% - 24px)); }
+.auth-dialog h2 { padding-right: 40px; }
+.auth-dialog form { margin: 0; }
+.auth-dialog .h-captcha { margin: 8px 0; min-height: 144px; }
+.auth-dialog form > button[type="submit"] { width: 100%; }
+.auth-link { padding: 6px 0; color: var(--akzent); background: transparent; border: 0; text-decoration: underline; text-underline-offset: 3px; }
+.auth-link:hover { background: transparent; color: var(--akzent-dunkel); }
+.auth-wechsel { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; border-top: 1px solid var(--linie); padding-top: 12px; margin-top: 16px; }
+#auth-meldung:empty, #landing-meldung:empty { display: none; }
+#auth-meldung { margin-top: 14px; }
+@media (max-width: 600px) {
+    body:has(#landing-bereich:not([hidden])) .seitenkopf .logo { display: block; }
+    .landing-aktionen button { flex: 1 1 auto; }
+}

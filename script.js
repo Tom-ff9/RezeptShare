@@ -879,105 +879,128 @@ navigationsButtons.forEach(function (button) {
 
 
 
-anmeldeFormular.addEventListener("submit", async function (event) {
-    event.preventDefault();
+const authDialog = document.querySelector("#auth-dialog");
+const bestaetigungsEmailFormular = document.querySelector("#bestaetigungs-email-formular");
+const authFormulare = { anmelden: anmeldeFormular, registrieren: registrierFormular, bestaetigen: bestaetigungsEmailFormular };
+let authAnfrageLaeuft = false;
+let erneutSendenAb = 0;
 
+function authRedirectUrl() {
+    const url = new URL(window.location.pathname, window.location.origin);
+    const einladung = new URLSearchParams(window.location.search).get("einladung");
+    if (einladung) url.searchParams.set("einladung", einladung);
+    return url.href;
+}
+function authFormularOeffnen(ansicht, email = "") {
+    if (authAnfrageLaeuft || !authFormulare[ansicht]) return;
+    for (const formular of Object.values(authFormulare)) {
+        window.rezeptCaptcha?.zuruecksetzen(formular);
+        formular.hidden = formular !== authFormulare[ansicht];
+    }
+    if (email) document.querySelector(ansicht === "bestaetigen" ? "#bestaetigungs-email" : "#anmelde-email").value = email;
+    document.querySelector("#auth-titel").textContent = { anmelden: "Anmelden", registrieren: "Konto erstellen", bestaetigen: "E-Mail bestätigen" }[ansicht];
+    authDialog.querySelectorAll(".auth-wechsel [data-auth-ansicht]").forEach(button => { button.hidden = button.dataset.authAnsicht === ansicht; });
     authMeldung.textContent = "";
     authMeldung.classList.remove("erfolgsmeldung");
-
-    try {
-        if (anmeldeCaptchaId === undefined) {
-            throw new Error("CAPTCHA wurde noch nicht geladen.");
-        }
-
-        const captchaToken = hcaptcha.getResponse(window.anmeldeCaptchaId);
-
-        if (!captchaToken) {
-            throw new Error("Bitte bestätige zuerst das CAPTCHA.");
-        }
-
-        const daten = datenAusErgebnis(
-            await supabaseClient.auth.signInWithPassword({
-                email: document.querySelector("#anmelde-email").value.trim(),
-                password: document.querySelector("#anmelde-passwort").value,
-                options: {
-                    captchaToken: captchaToken
-                }
-            }),
-            "Die Anmeldung ist fehlgeschlagen."
-        );
-
-        aktiverBenutzer = await benutzerAusSitzungLaden(daten.user);
-        await angemeldeteAppLaden();
-
-    } catch (fehler) {
-        authMeldung.textContent = fehler.message;
-        if (anmeldeCaptchaId !== undefined) {
-            hcaptcha.reset(anmeldeCaptchaId);
-        }
-    }
+    if (!authDialog.open) authDialog.showModal();
+    window.rezeptCaptcha?.aktivieren(authFormulare[ansicht]);
+    authFormulare[ansicht].querySelector("input")?.focus();
+}
+document.querySelectorAll("[data-auth-ansicht]").forEach(button => button.addEventListener("click", () => {
+    const email = document.querySelector("#anmelde-email").value.trim() || document.querySelector("#registrier-email").value.trim();
+    authFormularOeffnen(button.dataset.authAnsicht, email);
+}));
+document.querySelector("#auth-schliessen").addEventListener("click", () => authDialog.close());
+authDialog.addEventListener("close", () => {
+    Object.values(authFormulare).forEach(formular => window.rezeptCaptcha?.zuruecksetzen(formular));
+    authDialog.querySelectorAll('input[type="password"]').forEach(input => { input.value = ""; });
 });
 
-
-
-registrierFormular.addEventListener("submit", async function (event) {
-    event.preventDefault();
-
+async function authAnfrage(formular, ausfuehren) {
+    if (authAnfrageLaeuft) return;
+    authAnfrageLaeuft = true;
     authMeldung.textContent = "";
     authMeldung.classList.remove("erfolgsmeldung");
+    const buttons = authDialog.querySelectorAll('button:not(#auth-schliessen)');
+    buttons.forEach(button => { button.disabled = true; });
+    try {
+        if (!supabaseClient) throw new Error("Die Verbindung ist noch nicht bereit. Bitte lade die Seite neu.");
+        if (!window.rezeptCaptcha) throw new Error("CAPTCHA konnte nicht geladen werden. Bitte lade die Seite neu.");
+        const token = window.rezeptCaptcha.entnehmen(formular);
+        return await ausfuehren(token);
+    } catch (fehler) {
+        authMeldung.textContent = fehler.code === "email_not_confirmed"
+            ? "Bitte bestätige zuerst deine E-Mail-Adresse. Du kannst unten einen neuen Bestätigungslink anfordern."
+            : fehler.code === "captcha_failed" ? "CAPTCHA ungültig oder abgelaufen. Bitte bestätige es erneut."
+            : fehlerText(fehler);
+    } finally {
+        window.rezeptCaptcha?.zuruecksetzen(formular);
+        authAnfrageLaeuft = false;
+        buttons.forEach(button => { button.disabled = false; });
+    }
+}
 
+anmeldeFormular.addEventListener("submit", async event => {
+    event.preventDefault();
+    await authAnfrage(anmeldeFormular, async captchaToken => {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+            email: document.querySelector("#anmelde-email").value.trim(),
+            password: document.querySelector("#anmelde-passwort").value,
+            options: { captchaToken }
+        });
+        if (error) throw error;
+        aktiverBenutzer = await benutzerAusSitzungLaden(data.user);
+        authDialog.close();
+        await angemeldeteAppLaden();
+    });
+});
+
+registrierFormular.addEventListener("submit", async event => {
+    event.preventDefault();
     const anzeigename = document.querySelector("#registrier-name").value.trim();
     const email = document.querySelector("#registrier-email").value.trim();
     const passwort = document.querySelector("#registrier-passwort").value;
-
     if (!anzeigename || anzeigename.length > 60 || passwort.length < 8) {
         authMeldung.textContent = "Bitte verwende einen Namen und mindestens 8 Zeichen als Passwort.";
         return;
     }
-
-    try {
-        // CAPTCHA-Token auslesen
-        const captchaToken = hcaptcha.getResponse(registrierCaptchaId);
-
-        if (!captchaToken) {
-            authMeldung.textContent = "Bitte bestätige zuerst das CAPTCHA.";
-            return;
-        }
-
-        // Registrierung bei Supabase
-        const daten = datenAusErgebnis(
-            await supabaseClient.auth.signUp({
-                email: email,
-                password: passwort,
-                options: {
-                    data: { anzeigename: anzeigename },
-                    emailRedirectTo: window.location.href,
-                    captchaToken: captchaToken
-                }
-            }),
-            "Das Konto konnte nicht erstellt werden."
-        );
-
-        // Prüfen, ob eine Sitzung vorhanden ist
-        if (!daten.session) {
-            authMeldung.classList.add("erfolgsmeldung");
-            authMeldung.textContent =
-                "Das Konto wurde erstellt. Bitte melde dich an.";
-            return;
-        }
-
-        // Benutzer anmelden
-        aktiverBenutzer = await benutzerAusSitzungLaden(daten.user);
+    const bestaetigen = await authAnfrage(registrierFormular, async captchaToken => {
+        const { data, error } = await supabaseClient.auth.signUp({ email, password: passwort,
+            options: { data: { anzeigename }, emailRedirectTo: authRedirectUrl(), captchaToken }
+        });
+        if (error) throw error;
+        document.querySelector("#registrier-passwort").value = "";
+        if (!data.session) { erneutSendenAb = Date.now() + 60000; return true; }
+        aktiverBenutzer = await benutzerAusSitzungLaden(data.user);
+        authDialog.close();
         await angemeldeteAppLaden();
-
-    } catch (fehler) {
-        authMeldung.textContent = fehler.message;
-        if (typeof hcaptcha !== "undefined") {
-            hcaptcha.reset();
-        }
+        return false;
+    });
+    if (bestaetigen && authDialog.open) {
+        authFormularOeffnen("bestaetigen", email);
+        authMeldung.classList.add("erfolgsmeldung");
+        authMeldung.textContent = "Prüfe dein E-Mail-Postfach und bestätige deine Adresse über den Link. Falls bereits ein Konto besteht, kannst du dich anmelden.";
     }
 });
 
+bestaetigungsEmailFormular.addEventListener("submit", async event => {
+    event.preventDefault();
+    if (Date.now() < erneutSendenAb) {
+        authMeldung.classList.remove("erfolgsmeldung");
+        authMeldung.textContent = "Bitte warte noch " + Math.ceil((erneutSendenAb - Date.now()) / 1000) + " Sekunden, bevor du eine weitere E-Mail anforderst.";
+        return;
+    }
+    await authAnfrage(bestaetigungsEmailFormular, async captchaToken => {
+        erneutSendenAb = Date.now() + 60000;
+        const { error } = await supabaseClient.auth.resend({ type: "signup",
+            email: document.querySelector("#bestaetigungs-email").value.trim(),
+            options: { emailRedirectTo: authRedirectUrl(), captchaToken }
+        });
+        if (error) throw error;
+        authMeldung.classList.add("erfolgsmeldung");
+        authMeldung.textContent = "Falls eine Bestätigung für diese Adresse aussteht, erhältst du eine E-Mail. Prüfe auch deinen Spam-Ordner.";
+    });
+});
 
 abmeldenButton.addEventListener("click", async function () {
     if (aktiveAnsicht === "hinzufuegen" && formularGeaendert) {
@@ -1144,13 +1167,26 @@ document.addEventListener("click", event => {
 if (new URLSearchParams(window.location.search).has("einladung")) einladungsHinweis.hidden = false;
 
 async function anwendungStarten() {
+    const rueckgabe = new URLSearchParams(window.location.hash.slice(1));
+    const query = new URLSearchParams(window.location.search);
+    const linkFehler = rueckgabe.has("error") || query.has("error");
+    if (linkFehler) {
+        const url = new URL(window.location.href);
+        url.hash = "";
+        ["error", "error_code", "error_description"].forEach(key => url.searchParams.delete(key));
+        window.history.replaceState({}, "", url);
+    }
     supabaseClient = supabaseVerbinden();
     await sitzungLaden();
+    if (linkFehler && !aktiverBenutzer) {
+        authFormularOeffnen("bestaetigen");
+        authMeldung.textContent = "Der Bestätigungslink ist ungültig oder abgelaufen. Fordere bitte einen neuen Link an.";
+    }
 }
 
 erweiterungenInitialisieren();
 
 anwendungStarten().catch(function (fehler) {
-    authMeldung.textContent = "Die Anwendung konnte nicht geladen werden: " + fehler.message;
+    document.querySelector("#landing-meldung").textContent = "Die Anwendung konnte nicht geladen werden: " + fehler.message;
     anmeldeAnsichtAnzeigen();
 });
