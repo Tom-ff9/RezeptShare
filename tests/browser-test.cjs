@@ -5,7 +5,7 @@ function mockInstall() {
     window.mockState = {
         me, profile: {id:me,anzeigename:'Tom',bild_pfad:null,profilbild_festgelegt:false},
         group: {id:7,name:'Familienküche',ist_persoenlich:false,rolle:'admin',mitglieder_anzahl:2,rezepte_anzahl:1,neue_nur_ansehen:false},
-        recipe: {id:9,gruppen_id:7,erstellt_von:'other',name:'Gemüsesuppe',text:'Gemüse mit Chili würzen.\nZehn Minuten köcheln lassen.',bild_pfad:null,version:1,kalorien:120,protein:3,kohlenhydrate:14,fett:4,ersteller:{id:'other',anzeigename:'Anna'}},
+        recipe: {id:9,gruppen_id:7,familie_id:'family-9',erstellt_von:'other',name:'Gemüsesuppe',text:'Gemüse mit Chili würzen.\nZehn Minuten köcheln lassen.',bild_pfad:null,version:1,kalorien:120,protein:3,kohlenhydrate:14,fett:4,ersteller:{id:'other',anzeigename:'Anna'}},
         extraGroups:[], extraRecipes:[], memberRole:'mitglied', kicked:false, groupDeleted:false, hidden:[], calls:[], mark:{id:'mark-1',rezept_id:9,feld:'text',start_pos:11,ende_pos:16,alter_text:'Salz',autor:{anzeigename:'Tom'},ablauf_am:new Date(Date.now()+86400000).toISOString()}
     };
     const s = window.mockState;
@@ -25,11 +25,14 @@ function mockInstall() {
         from:table=>{
             let op='select',values,single=false,head=false; const filters={};
             const q={
-                select:(_,opts)=>{head=opts?.head;return q;},eq:(key,value)=>{filters[key]=value;return q;},order:()=>q,single:()=>{single=true;return q;},range:()=>q,
+                select:(_,opts)=>{head=opts?.head;return q;},eq:(key,value)=>{filters[key]=value;return q;},in:(key,value)=>{filters[key]=value;return q;},order:()=>q,single:()=>{single=true;return q;},range:()=>q,
                 update:v=>{op='update';values=v;return q;},upsert:v=>{op='upsert';values=v;return q;},
                 then:resolve=>{
                     if(table==='profile') {if(op==='update') Object.assign(s.profile,values);return Promise.resolve(resolve({data:s.profile}));}
-                    if(table==='rezepte') return Promise.resolve(resolve(head?{data:null,count:filters.erstellt_von==='other'?1:0}:{data:[s.recipe,...s.extraRecipes].filter(r=>filters.gruppen_id===undefined || r.gruppen_id===filters.gruppen_id)}));
+                    if(table==='rezepte') {
+                        const rows=[s.recipe,...s.extraRecipes].filter(Boolean).filter(r=>(filters.gruppen_id===undefined || (Array.isArray(filters.gruppen_id)?filters.gruppen_id.includes(r.gruppen_id):r.gruppen_id===filters.gruppen_id)) && (filters.familie_id===undefined || filters.familie_id===r.familie_id) && (filters.id===undefined || filters.id===r.id));
+                        return Promise.resolve(resolve(head?{data:null,count:filters.erstellt_von==='other'?1:0}:{data:single?rows[0]:rows}));
+                    }
                     if(table==='gruppen_mitglieder') {
                         const rows=[{rolle:s.group.rolle,profil:{id:me,anzeigename:s.profile.anzeigename,bild_pfad:null}}];
                         if(!s.kicked) rows.push({rolle:s.memberRole,profil:{id:'other',anzeigename:'Anna',bild_pfad:null}});
@@ -44,7 +47,7 @@ function mockInstall() {
     })};
 }
 (async()=>{
-    const browser = await chromium.launch({headless:true,executablePath:process.env.BROWSER_BINARY || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+    const browser = await chromium.launch({headless:true,...(process.env.BROWSER_BINARY?{executablePath:process.env.BROWSER_BINARY}:{})});
     const page = await browser.newPage({viewport:{width:1280,height:900}});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.route('https://**/*',route=>route.request().url().includes('cdn.jsdelivr.net')
@@ -83,14 +86,25 @@ function mockInstall() {
     // Gesamtliste mit unterschiedlichen Gruppenrechten; Zielgruppe beim Bearbeiten/Hinzufügen.
     await page.evaluate(async()=>{
         mockState.extraGroups=[{...mockState.group,id:8,name:'Nur lesen',rolle:'beobachter'}];
-        mockState.extraRecipes=[{...mockState.recipe,id:10,gruppen_id:8,name:'Leserezept'}];
+        mockState.extraRecipes=[{...mockState.recipe,id:10,gruppen_id:8,familie_id:'family-10',name:'Leserezept'}];
         await gruppenLaden(7);
     });
-    assert.equal(await page.locator('label[for="gruppen-auswahl"]').evaluate(el=>el.classList.contains('nur-screenreader')),true);
-    await page.locator('#gruppen-auswahl').selectOption('8');
+    async function waehleGruppen(ids) {
+        await page.locator('#gruppen-auswahl').click();
+        const panel=page.locator('#gruppen-kontext .gruppen-wahl-panel');
+        if(ids==='alle') await panel.locator('input[data-gruppe="alle"]').check();
+        else {
+            for(const input of await panel.locator('input[data-gruppe]:not([data-gruppe="alle"])').all()) {
+                if(!await input.isDisabled()) await input.setChecked(ids.includes(Number(await input.getAttribute('data-gruppe'))));
+            }
+        }
+        await panel.getByRole('button',{name:'Übernehmen',exact:true}).click();
+    }
+    assert.match(await page.locator('#gruppen-auswahl').innerText(),/Gruppen filtern/);
+    await waehleGruppen([8]);
     await page.getByRole('button',{name:'Leserezept öffnen',exact:true}).waitFor();
     assert.equal(await page.locator('.rezept-karte').count(),1);
-    await page.locator('#gruppen-auswahl').selectOption('alle');
+    await waehleGruppen('alle');
     await page.getByRole('button',{name:'Gemüsesuppe öffnen',exact:true}).waitFor();
     assert.equal(await page.locator('.rezept-karte').count(),2);
     assert.equal(await page.locator('[data-ansicht="hinzufuegen"]').isVisible(),true);
@@ -102,15 +116,15 @@ function mockInstall() {
     assert.equal(await page.locator('#rezept-bearbeiten-button').isVisible(),true);
     assert.equal(await page.locator('#rezept-loeschen-button').isVisible(),true);
     await page.locator('#rezept-bearbeiten-button').click();
-    assert.equal(await page.locator('#gruppen-auswahl').inputValue(),'7');
-    assert.equal(await page.locator('#gruppen-auswahl option[value="alle"]').count(),0);
+    assert.deepEqual(await page.evaluate(()=>formularGruppenIds),[7]);
+    assert.equal(await page.locator('#gruppen-kontext input[data-gruppe="alle"]').count(),0);
     await page.locator('#abbrechen-button').click();
-    assert.equal(await page.locator('#gruppen-auswahl').inputValue(),'alle');
-    await page.locator('#gruppen-auswahl').selectOption('8');
-    await page.locator('#gruppen-auswahl').selectOption('alle');
+    assert.equal(await page.evaluate(()=>filterGruppenIds),null);
+    await waehleGruppen([8]);
+    await waehleGruppen('alle');
     await page.locator('[data-ansicht="hinzufuegen"]').click();
-    assert.equal(await page.locator('#gruppen-auswahl').inputValue(),'7');
-    assert.equal(await page.locator('#gruppen-auswahl option[value="alle"]').count(),0);
+    assert.deepEqual(await page.evaluate(()=>formularGruppenIds),[7]);
+    assert.equal(await page.locator('#gruppen-kontext input[data-gruppe="alle"]').count(),0);
     assert.equal(await page.locator('.formular-aktionen #gruppen-kontext').count(),1);
     for (const width of [1280,390]) {
         await page.setViewportSize({width,height:900});
@@ -123,21 +137,21 @@ function mockInstall() {
                 position:innerWidth<=600 ? select.bottom<=save.top : select.left>save.right,wholeBox:Math.abs(box.width-select.width)<1 && Math.abs(box.height-select.height)<1,
                 hit:document.elementFromPoint(select.left+3,select.top+3)?.id};
         });
-        assert.deepEqual(bounds,{equalWidth:true,equalHeight:true,position:true,wholeBox:true,hit:'gruppen-auswahl'});
+        assert.equal(bounds.position,true); assert.equal(bounds.hit,'gruppen-auswahl'); assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     }
     await page.screenshot({path:'/tmp/rezept-share-gruppenauswahl-unten.png',fullPage:true});
     await page.evaluate(()=>{gruppen.push({id:9,name:'Weitere Gruppe',rolle:'mitglied'});gruppenAuswahlAktualisieren();});
     await page.locator('#rezept-name').fill('Entwurf behalten');
     await page.locator('#rezept-text').fill('Auch die Zubereitung bleibt erhalten.');
-    await page.locator('#gruppen-auswahl').selectOption('9');
+    await waehleGruppen([9]);
     assert.equal(await page.locator('#rezept-name').inputValue(),'Entwurf behalten');
     assert.equal(await page.locator('#rezept-text').inputValue(),'Auch die Zubereitung bleibt erhalten.');
     assert.equal(await page.locator('#bestaetigungs-dialog').isVisible(),false);
     await page.evaluate(()=>{formularZuruecksetzen();});
     await page.setViewportSize({width:1280,height:900});
     await page.getByRole('button',{name:'Rezepte',exact:true}).click();
-    assert.equal(await page.locator('#gruppen-auswahl').inputValue(),'alle');
-    await page.locator('#gruppen-auswahl').selectOption('7');
+    assert.equal(await page.evaluate(()=>filterGruppenIds),null);
+    await waehleGruppen([7]);
     await page.evaluate(async()=>{mockState.extraGroups=[];mockState.extraRecipes=[];await gruppenLaden(7);});
     await page.getByRole('button',{name:'Gruppen',exact:true}).click();
     await page.locator('.gruppen-eintrag-kopf').click();

@@ -27,6 +27,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js" defer></script>
     <script src="funktionen.js" defer></script>
     <script src="gruppen.js" defer></script>
+    <script src="rezeptgruppen.js" defer></script>
     <script src="script.js" defer></script>
 </head>
 <body>
@@ -72,10 +73,10 @@
 
         <div id="app-bereich" hidden>
             <section id="gruppen-kontext" class="gruppen-kontext">
-                <label class="nur-screenreader" for="gruppen-auswahl">Gruppe auswählen</label>
-                <select id="gruppen-auswahl"></select>
+                <div id="gruppen-auswahl"></div>
             </section>
 
+            <p id="gruppen-status" role="status" aria-live="polite"></p>
             <section id="rezepte-ansicht" class="app-ansicht" aria-labelledby="liste-ueberschrift">
                 <div class="ansicht-kopf">
                     <div class="ansicht-titel">
@@ -191,12 +192,18 @@
         <button id="rezept-detail-schliessen" class="dialog-schliessen" type="button" aria-label="Rezept schließen">×</button>
         <div id="rezept-detail-inhalt"></div>
         <div class="dialog-aktionen">
+            <div id="rezept-gruppen-platz"></div>
             <button id="rezept-bearbeiten-button" class="primaer-button" type="button">Bearbeiten</button>
             <button id="rezept-kopieren-button" class="sekundaer-button kopier-button" type="button" aria-label="Rezept kopieren" title="Rezept kopieren">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h3"/></svg>
             </button>
+            <button id="rezept-teilen-button" class="sekundaer-button kopier-button" type="button" aria-label="Rezept teilen" title="Rezept teilen">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4 20-7Z"/><path d="m22 2-11 11"/></svg>
+            </button>
             <button id="rezept-loeschen-button" class="gefahr-button" type="button">Löschen</button>
         </div>
+        <p id="rezept-aktions-meldung" role="status" aria-live="polite" hidden></p>
+        <div id="rezept-link-ausgabe"></div>
         <p id="kopier-meldung" role="status" aria-live="polite" hidden></p>
     </dialog>
 

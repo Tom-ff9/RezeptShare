@@ -11,12 +11,11 @@ function darfRezeptLoeschen(rezept) {
     return darfRezepteBearbeiten(rezept.gruppenId) && (gruppen.find(g => g.id === rezept.gruppenId)?.rolle === 'admin' || rezept.ersteller.id === aktiverBenutzer.id);
 }
 function darfRezeptHinzufuegen() {
-    return aktiveAnsicht === 'rezepte' && alleGruppenAnzeigen
-        ? gruppen.some(g => darfRezepteBearbeiten(g.id)) : darfRezepteBearbeiten();
+    return gruppen.some(g => darfRezepteBearbeiten(g.id));
 }
 function rechteAnzeigen() {
     document.querySelector('[data-ansicht="hinzufuegen"]').hidden = !darfRezeptHinzufuegen();
-    if (!darfRezepteBearbeiten() && aktiveAnsicht === 'hinzufuegen') ansichtAnzeigen('rezepte');
+    if (!darfRezeptHinzufuegen() && aktiveAnsicht === 'hinzufuegen') ansichtAnzeigen('rezepte');
 }
 async function serverFunktion(name, body) {
     const result = await supabaseClient.functions.invoke(name, { body });

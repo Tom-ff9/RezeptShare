@@ -5,10 +5,10 @@
   "description": "Einfache Rezept-App für Familien und Gruppen",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check captcha.js && node --check konfiguration.js && node --check script.js && node --check funktionen.js && node --check gruppen.js && node --check tests/projekt-test.js && node --check tests/auth-test.cjs && node --check scripts/build-pages.cjs && node --check tests/auth-browser-test.cjs && node --check tests/pages-test.cjs",
+    "check": "node --check server.js && node --check captcha.js && node --check konfiguration.js && node --check script.js && node --check funktionen.js && node --check gruppen.js && node --check rezeptgruppen.js && node --check tests/projekt-test.js && node --check tests/auth-test.cjs && node --check scripts/build-pages.cjs && node --check tests/auth-browser-test.cjs && node --check tests/pages-test.cjs",
     "test": "node tests/auth-test.cjs && node tests/aenderungen-test.mjs && node tests/edge-test.mjs && node tests/projekt-test.js && node tests/pages-test.cjs",
     "test:db": "node tests/datenbank-test.mjs",
-    "test:browser": "node tests/browser-test.cjs",
+    "test:browser": "node tests/browser-test.cjs && node tests/rezeptgruppen-browser-test.cjs",
     "test:auth:browser": "node tests/auth-browser-test.cjs",
     "build": "node scripts/build-pages.cjs"
   },

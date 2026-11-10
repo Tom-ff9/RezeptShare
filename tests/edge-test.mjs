@@ -82,3 +82,39 @@ h=harness(groupDeleteSource,groupDeleteFixture({exists:false}));
 assert.equal((await h.request({gruppen_id:7,bestaetigt:true})).status,200);
 assert.deepEqual(h.calls,['gruppe_loeschung_vorbereiten']);
 console.log('Gruppenlöschung geprüft: Bestätigung, Adminrechte, Bildbereinigung, Wiederholbarkeit und Abbruch bei Storagefehler.');
+
+// Öffentliche Rezeptlinks liefern ausschließlich den Schnappschuss, nie interne IDs.
+const sharingSource=await fs.readFile(new URL('../supabase/functions/rezept-gruppen/index.ts',import.meta.url),'utf8');
+function sharingFixture({authenticated=true,missing=false,cached=false,sourceDenied=false}={}) {
+ return calls=>{
+  const me='11111111-1111-4111-8111-111111111111';
+  const snapshot={token:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',familie_id:'hidden-family',quell_id:42,erstellt_von:me,anzeigename:'Anna',bild_pfad:'hidden/image',daten:{name:'Suppe',text:'Salz',kalorien:1,protein:null,kohlenhydrate:null,fett:null,gruppen_id:99}};
+  function table(name) {
+   const q={select:()=>q,eq:()=>q,limit:()=>q,single:()=>q,maybeSingle:()=>q,then:resolve=>{
+    let data=name==='profile'?{wird_geloescht:false}:name==='rezept_freigaben'?(missing?null:snapshot):name==='rezept_auftraege'?(cached?{ergebnis:{kopien:[{id:5,gruppen_id:7}],entfernte_bilder:['private/path']}}:null):name==='gruppen_mitglieder'?{rolle:'mitglied'}:[];
+    calls.push('read:'+name);
+    return Promise.resolve(resolve(name==='rezepte'&&sourceDenied?{error:{message:'Kein Rezeptzugriff'}}:{data}));
+   }};return q;
+  }
+  return {user:{auth:{getUser:async()=>({data:{user:authenticated?{id:me}:null}})},from:table},admin:{from:table,
+   storage:{from:()=>({createSignedUrl:async()=>({data:{signedUrl:'https://image.invalid/signed'}})})},
+   rpc:async()=>{throw new Error('Unerwartete Mutation');}}};
+ };
+}
+h=harness(sharingSource,sharingFixture({authenticated:false}));
+let shared=await h.request({aktion:'ansehen',token:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'});
+assert.equal(shared.status,200);
+assert.deepEqual(Object.keys(shared.data).sort(),['bild','fett','geteilt_von','kalorien','kohlenhydrate','name','protein','text']);
+assert.equal(shared.data.geteilt_von,'Anna');
+assert.ok(!JSON.stringify(shared.data).includes('hidden'));
+assert.equal((await h.request({aktion:'ansehen',token:'invalid'})).status,400);
+assert.equal((await h.request({aktion:'teilen',id:42,version:1})).status,401);
+h=harness(sharingSource,sharingFixture({missing:true}));
+assert.match((await h.request({aktion:'ansehen',token:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'})).data.error,/ungültig/);
+h=harness(sharingSource,sharingFixture({cached:true}));
+shared=await h.request({aktion:'uebernehmen',auftrag:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',gruppen:[7],token:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'});
+assert.equal(shared.status,200);assert.deepEqual(Object.keys(shared.data),['kopien']);
+assert.ok(!h.calls.includes('read:rezepte'));
+h=harness(sharingSource,sharingFixture({sourceDenied:true}));
+assert.equal((await h.request({aktion:'teilen',id:42,version:1})).status,400);
+console.log('Rezeptlinks geprüft: öffentlicher Minimalumfang, Tokenfehler, Authentifizierung, Quellrechte und idempotente Übernahme.');

@@ -8,3 +8,7 @@ verify_jwt = false
 
 [functions.gruppe-loeschen]
 verify_jwt = false
+
+[functions.rezept-gruppen]
+verify_jwt = false
+# Nur ansehen ist öffentlich; alle anderen Aktionen prüfen auth.getUser().

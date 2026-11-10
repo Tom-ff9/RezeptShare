@@ -30,6 +30,7 @@ for (let i=0;i<ids.length;i++) await db.query(`insert into auth.users(id,email,r
 const migration = (await fs.readFile(new URL('../supabase/migrations/202611060001_profile_rollen.sql',import.meta.url),'utf8')).replace('create extension if not exists pg_cron;','');
 await db.exec(migration);
 await db.exec(await fs.readFile(new URL('../supabase/migrations/202611060002_gruppenverwaltung.sql',import.meta.url),'utf8'));
+await db.exec(await fs.readFile(new URL('../supabase/migrations/202611100001_rezeptgruppen_teilen.sql',import.meta.url),'utf8'));
 assert.equal((await db.query(`select count(*)::int n from public.profile where profilbild_festgelegt`)).rows[0].n,4);
 assert.equal((await db.query(`select count(*)::int n from public.gruppen_mitglieder where rolle='besitzer'`)).rows[0].n,0);
 async function asUser(i, query, params=[]) {
@@ -59,6 +60,64 @@ await asUser(0,`insert into storage.objects(bucket_id,name,owner,owner_id) value
 await assert.rejects(asUser(1,`insert into storage.objects(bucket_id,name,owner) values('profilbilder',$1,auth.uid())`,[ids[0]+'/forbidden.jpg']));
 const recipe = scalar(await asUser(0,`insert into public.rezepte(gruppen_id,erstellt_von,name,text,bild_pfad) values($1,auth.uid(),'Suppe','Salz',$2) returning id`,[group,group+'/shared.jpg']));
 assert.equal((await asUser(3,'select * from public.rezepte where id=$1',[recipe])).rows.length,0);
+
+// Mehrfachzuordnung: atomare Kopien, getrennte Bilder und Wiederholungsschutz.
+const recipeFamily=scalar(await db.query('select familie_id from public.rezepte where id=$1',[recipe]));
+const job=()=>crypto.randomUUID();
+async function assign(person,auftrag,modus,id,version,token,groups,remove=[],data=null,images={}) {
+ return scalar(await db.query('select public.rezept_gruppen_anwenden($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[person,auftrag,modus,id,version,token,groups,JSON.stringify(remove),data,images]));
+}
+await assert.rejects(asUser(0,'insert into public.rezepte(gruppen_id,erstellt_von,name,text,familie_id) values($1,auth.uid(),$2,$3,$4)',[ownGroup,'Verboten','Text',recipeFamily]));
+await assert.rejects(asUser(0,'select public.rezept_gruppen_anwenden($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[ids[0],job(),'zuordnen',recipe,1,null,[ownGroup],[],null,{}]));
+await assert.rejects(assign(ids[3],job(),'zuordnen',recipe,1,null,[ownGroup]));
+await assert.rejects(assign(ids[0],job(),'zuordnen',recipe,99,null,[group]));
+await assert.rejects(assign(ids[1],job(),'zuordnen',recipe,1,null,[group,ownGroup]));
+await asUser(0,`insert into storage.objects(bucket_id,name) values('rezeptbilder',$1)`,[ownGroup+'/copy.jpg']);
+const assignJob=job();
+const assigned=await assign(ids[0],assignJob,'zuordnen',recipe,1,null,[group,ownGroup],[],null,{[ownGroup]:ownGroup+'/copy.jpg'});
+assert.equal(assigned.kopien.length,2);
+const copied=assigned.kopien.find(r=>r.gruppen_id===ownGroup);
+assert.equal(scalar(await db.query('select bild_pfad from public.rezepte where id=$1',[copied.id])),ownGroup+'/copy.jpg');
+await assign(ids[0],assignJob,'zuordnen',recipe,1,null,[group,ownGroup]);
+assert.equal(scalar(await db.query('select count(*)::int from public.rezepte where familie_id=$1',[recipeFamily])),2);
+// Eine Bearbeitung bleibt auf die bearbeitete Gruppenkopie begrenzt.
+await db.query('select public.rezept_speichern_intern($1,$2,1,$3,$4)',[ids[0],copied.id,{name:'Kopie',text:'Eigener Text',bild_pfad:ownGroup+'/copy.jpg'},[]]);
+assert.equal(scalar(await db.query('select text from public.rezepte where id=$1',[recipe])),'Salz');
+await assert.rejects(assign(ids[0],job(),'zuordnen',recipe,1,null,[group],[{id:copied.id,gruppen_id:ownGroup,version:1}]));
+await assign(ids[0],job(),'zuordnen',recipe,1,null,[group],[{id:copied.id,gruppen_id:ownGroup,version:2}]);
+assert.equal(scalar(await db.query('select count(*)::int from public.rezepte where id=$1',[copied.id])),0);
+// Beobachter können in ihre eigene Sammlung kopieren, aber keine fremde Kopie entfernen.
+const observerGroup=scalar(await asUser(1,'select id from public.gruppen where ist_persoenlich'));
+await asUser(1,`insert into storage.objects(bucket_id,name) values('rezeptbilder',$1)`,[observerGroup+'/readcopy.jpg']);
+await assign(ids[1],job(),'zuordnen',recipe,1,null,[group,observerGroup],[],null,{[observerGroup]:observerGroup+'/readcopy.jpg'});
+await assert.rejects(assign(ids[1],job(),'zuordnen',recipe,1,null,[observerGroup],[{id:recipe,gruppen_id:group,version:1}]));
+// Neue Rezepte werden mit genau einer gemeinsamen Familie in mehreren Gruppen angelegt.
+const newData={name:'Neu',text:'Unverändert',bild_pfad:null};
+const createJob=job();
+const created=await assign(ids[0],createJob,'erstellen',null,null,null,[ownGroup,group],[],newData);
+assert.equal(created.kopien.length,2);
+assert.deepEqual(await assign(ids[0],createJob,'erstellen',null,null,null,[ownGroup,group],[],newData),created);
+await assert.rejects(assign(ids[0],job(),'erstellen',null,null,null,[],[],newData));
+const publicToken=job();
+await db.query(`insert into storage.objects(bucket_id,name) values('rezeptfreigaben',$1)`,[ids[0]+'/'+publicToken]);
+await db.query('select public.rezept_freigabe_erstellen($1,$2,1,$3,$4)',[ids[0],recipe,publicToken,ids[0]+'/'+publicToken]);
+await assert.rejects(asUser(0,'select * from public.rezept_freigaben'));
+await db.exec('set role anon');
+await assert.rejects(db.query('select * from public.rezept_freigaben'));
+await db.exec('reset role');
+// Der fremde Empfänger hat vor dem Import noch keine Kopie.
+const receiverGroup=scalar(await asUser(3,'select id from public.gruppen where ist_persoenlich'));
+assert.equal(scalar(await db.query('select count(*)::int from public.rezepte where familie_id=$1 and gruppen_id=$2',[recipeFamily,receiverGroup])),0);
+await asUser(3,`insert into storage.objects(bucket_id,name) values('rezeptbilder',$1)`,[receiverGroup+'/import.jpg']);
+const imported=await assign(ids[3],job(),'uebernehmen',null,null,publicToken,[receiverGroup],[],null,{[receiverGroup]:receiverGroup+'/import.jpg'});
+assert.equal(imported.kopien.length,1);
+await assign(ids[3],job(),'uebernehmen',null,null,publicToken,[receiverGroup]);
+assert.equal(scalar(await db.query('select count(*)::int from public.rezepte where familie_id=$1 and gruppen_id=$2',[recipeFamily,receiverGroup])),1);
+await assert.rejects(assign(ids[3],job(),'uebernehmen',null,null,job(),[receiverGroup]));
+const importedId=imported.kopien[0].id;
+assert.equal(scalar(await db.query('select geteilt_von from public.rezepte where id=$1',[importedId])),'Person 0');
+
+assert.equal(scalar(await db.query("select daten->>'text' from public.rezept_freigaben where token=$1",[publicToken])),'Salz');
 await asUser(0,'select public.gruppen_einstellung($1,true)',[group]);
 const pending = (await asUser(0,'select * from public.einladung_erstellen($1,$2)',[group,'p3@test.invalid'])).rows[0].token;
 await asUser(0,'select public.gruppen_einstellung($1,false)',[group]);
@@ -104,6 +163,8 @@ await db.query('select public.konto_loeschung_vorbereiten($1)',[ids[0]]);
 assert.equal((await db.query('select * from public.konto_dateien_vorbereiten($1)',[ids[0]])).rows.length,0);
 await db.query('select public.konto_daten_entfernen($1)',[ids[0]]);
 await db.query('delete from auth.users where id=$1',[ids[0]]);
+assert.equal(scalar(await db.query('select count(*)::int from public.rezept_freigaben where token=$1',[publicToken])),0);
+assert.equal(scalar(await db.query('select text from public.rezepte where id=$1',[importedId])),'Salz');
 assert.equal(scalar(await db.query('select erstellt_von from public.rezepte where id=$1',[recipe])),null);
 await asUser(2,'select public.mitglied_rolle($1,$2,$3)',[group,ids[1],'mitglied']);
 await assert.rejects(asUser(1,'select public.rezept_loeschen($1,2)',[recipe]),'Mitglied darf anonymisiertes fremdes Rezept nicht löschen');

@@ -350,16 +350,6 @@ fieldset { margin: 10px 0 0; padding: 14px; border: 1px solid var(--linie); bord
     #rezepte-ansicht .rezept-suchfeld { flex: 1 1 360px; }
 }
 
-/* Einheitliche Rundung auch bei nativen mobilen Auswahlfeldern. */
-#gruppen-kontext #gruppen-auswahl {
-    -webkit-appearance: none;
-    appearance: none;
-    border-radius: 7px;
-    padding-right: 36px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23244634' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-}
 
 .rezept-statistik { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
 @media (max-width: 600px) {
@@ -457,3 +447,28 @@ body:has(#rezept-detail-dialog[open]) { overflow: hidden; }
     body:has(#landing-bereich:not([hidden])) .seitenkopf .logo { display: block; }
     .landing-aktionen button { flex: 1 1 auto; }
 }
+
+/* Gruppenfilter und Rezeptzuordnung: echte Checkboxen statt Einfachauswahl. */
+.mehrfachwahl { position: relative; min-width: 0; }
+.gruppen-wahl-button { width: 100%; white-space: nowrap; padding-right: 34px; text-align: left; position: relative; }
+.gruppen-wahl-button::after { content: '⌄'; position: absolute; right: 12px; }
+.gruppen-wahl-panel { position: absolute; z-index: 15; left: 0; top: calc(100% + 6px); width: min(340px, calc(100vw - 48px)); padding: 12px; border: 1px solid var(--linie, #ccc); border-radius: 9px; background: var(--flaeche, #fff); color: var(--text, #222); box-shadow: 0 8px 24px #0002; }
+.gruppen-wahl-panel[hidden] { display: none; }
+.gruppen-wahl-liste { max-height: 260px; overflow-y: auto; }
+.gruppen-wahl-option { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 7px; margin: 0; cursor: pointer; overflow-wrap: anywhere; }
+.gruppen-wahl-option input[type="checkbox"] { appearance: auto; width: 20px; height: 20px; min-height: 20px; padding: 0; margin: 0; flex: 0 0 20px; accent-color: var(--akzent); }
+.gruppen-wahl-option:has(input:disabled) { opacity: .65; cursor: default; }
+.gruppen-wahl-option:focus-within { outline: 2px solid var(--akzent); outline-offset: -2px; border-radius: 5px; }
+.gruppen-wahl-aktionen { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.gruppen-wahl-panel .fehlermeldung:empty, #gruppen-status:empty { display: none; }
+#rezept-gruppen-platz { min-width: 0; }
+.rezept-dialog .dialog-aktionen { flex-wrap: wrap; align-items: center; }
+.rezept-dialog .gruppen-wahl-panel, #hinzufuegen-ansicht .gruppen-wahl-panel { top: auto; bottom: calc(100% + 6px); }
+#rezept-link-ausgabe input { width: 100%; margin-top: 12px; }
+@media (max-width: 600px) {
+    #rezept-gruppen-platz { flex-basis: 100%; }
+    #rezept-gruppen-platz .gruppen-wahl-button { width: auto; }
+    .gruppen-wahl-panel { max-width: calc(100vw - 64px); }
+}
+
+#rezept-aktions-meldung, #rezept-link-ausgabe { max-width: 720px; margin-inline: auto; }

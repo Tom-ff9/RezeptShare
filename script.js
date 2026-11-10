@@ -21,7 +21,6 @@ const profilDialog = document.querySelector("#profil-dialog");
 const profilFormular = document.querySelector("#profil-formular");
 const profilMeldung = document.querySelector("#profil-meldung");
 
-const gruppenAuswahl = document.querySelector("#gruppen-auswahl");
 const gruppenListe = document.querySelector("#gruppen-liste");
 const gruppenMeldung = document.querySelector("#gruppen-meldung");
 const neueGruppeButton = document.querySelector("#neue-gruppe-button");
@@ -304,11 +303,12 @@ function gruppenAuswahlPositionieren() {
 handyAnsicht.addEventListener("change", gruppenAuswahlPositionieren);
 
 function ansichtAnzeigen(ansichtName) {
-    if (ansichtName === "hinzufuegen" && alleGruppenAnzeigen && !darfRezepteBearbeiten()) {
+    if (ansichtName === "hinzufuegen" && !darfRezepteBearbeiten()) {
         aktiveGruppenId = gruppen.find(g => darfRezepteBearbeiten(g.id))?.id || aktiveGruppenId;
     }
     if (ansichtName === "hinzufuegen" && !darfRezepteBearbeiten()) ansichtName = "rezepte";
     aktiveAnsicht = ansichtName;
+    if (ansichtName === "hinzufuegen" && !bearbeitetesRezeptId && !formularGeaendert) formularGruppenIds = standardFormularGruppen();
     gruppenAuswahlAktualisieren();
     document.querySelector('[data-ansicht="hinzufuegen"]').hidden = !darfRezeptHinzufuegen();
     appAnsichten.forEach(function (ansicht) {
@@ -357,6 +357,7 @@ async function angemeldeteAppLaden() {
     appAnsichtAnzeigen();
     const neueGruppenId = await einladungAnnehmenWennVorhanden();
     await gruppenLaden(neueGruppenId);
+    if (rezeptLinkToken) await geteiltesRezeptOeffnen();
 }
 
 async function sitzungLaden() {
@@ -385,19 +386,7 @@ function gruppeFuerBrowser(daten) {
 }
 
 function gruppenAuswahlAktualisieren() {
-    gruppenAuswahl.replaceChildren();
-    if (aktiveAnsicht === "rezepte") {
-        const alle = elementErstellen("option", null, "Alle");
-        alle.value = "alle";
-        gruppenAuswahl.append(alle);
-    }
-    gruppen.forEach(function (gruppe) {
-        const option = elementErstellen("option", null, gruppe.name);
-        option.value = gruppe.id;
-        option.disabled = aktiveAnsicht === "hinzufuegen" && !darfRezepteBearbeiten(gruppe.id);
-        gruppenAuswahl.append(option);
-    });
-    gruppenAuswahl.value = aktiveAnsicht === "rezepte" && alleGruppenAnzeigen ? "alle" : (aktiveGruppenId ?? "");
+    kontextAuswahlAktualisieren();
 }
 
 async function gruppenLaden(bevorzugteGruppenId = null) {
@@ -411,6 +400,7 @@ async function gruppenLaden(bevorzugteGruppenId = null) {
     const letzteId = Number(localStorage.getItem("aktiveGruppenId"));
     const letzteGruppe = gruppen.find(function (gruppe) { return gruppe.id === letzteId; });
     aktiveGruppenId = bevorzugteGruppe?.id || letzteGruppe?.id || gruppen[0]?.id || null;
+    filterInitialisieren();
     gruppenAuswahlAktualisieren();
     if (aktiveGruppenId) localStorage.setItem("aktiveGruppenId", aktiveGruppenId);
     gruppenListeAnzeigen();
@@ -438,6 +428,8 @@ async function rezeptFuerBrowser(daten) {
         id: Number(daten.id),
         version: daten.version,
         gruppenId: Number(daten.gruppen_id),
+        familieId: daten.familie_id,
+        geteiltVon: daten.geteilt_von,
         name: daten.name,
         text: daten.text,
         bildPfad: daten.bild_pfad,
@@ -458,11 +450,11 @@ async function rezeptFuerBrowser(daten) {
 async function rezepteLaden() {
     const ladenummer = ++rezeptLadeNummer;
     let geladen = [];
-    if (aktiveGruppenId || alleGruppenAnzeigen) {
+    if (filterGruppenIds === null || filterGruppenIds.length) {
         let query = supabaseClient.from("rezepte")
-            .select("id, gruppen_id, erstellt_von, name, text, bild_pfad, kalorien, protein, kohlenhydrate, fett, version, aktualisiert_am, ersteller:profile!rezepte_erstellt_von_fkey(id, anzeigename)");
+            .select("id, gruppen_id, familie_id, geteilt_von, erstellt_von, name, text, bild_pfad, kalorien, protein, kohlenhydrate, fett, version, aktualisiert_am, ersteller:profile!rezepte_erstellt_von_fkey(id, anzeigename)");
         // RLS beschränkt auch die Gesamtliste auf die Gruppen des Kontos.
-        if (!alleGruppenAnzeigen) query = query.eq("gruppen_id", aktiveGruppenId);
+        if (filterGruppenIds !== null) query = query.in("gruppen_id", filterGruppenIds);
         const daten = await alleZeilenLaden(query.order("aktualisiert_am", { ascending: false }).order("id", { ascending: false }));
         geladen = await Promise.all(daten.map(rezeptFuerBrowser));
     }
@@ -495,7 +487,7 @@ function rezeptKarteErstellen(rezept) {
     const inhalt = elementErstellen("div", "rezept-karte-inhalt");
     inhalt.append(elementErstellen("h3", null, rezept.name));
     const meta = elementErstellen("p", "rezept-ersteller");
-    if (alleGruppenAnzeigen && gruppe) meta.append(elementErstellen("span", null, gruppe.name));
+    if ((filterGruppenIds === null || filterGruppenIds.length !== 1) && gruppe) meta.append(elementErstellen("span", null, gruppe.name));
     if (!gruppe?.istPersoenlich) {
         if (meta.childNodes.length) {
             const trenner = elementErstellen("span", "rezept-meta-trenner gruppen-statistik-trenner", " | ");
@@ -518,8 +510,8 @@ function rezeptListeAnzeigen() {
     });
     rezeptAnzahl.textContent = sichtbareRezepte.length === 1 ? "1 Rezept" : sichtbareRezepte.length + " Rezepte";
     const mitgliederBadge = document.querySelector("#aktive-mitglieder-anzahl");
-    const aktiveGruppe = gruppen.find(gruppe => gruppe.id === aktiveGruppenId);
-    mitgliederBadge.hidden = alleGruppenAnzeigen || !aktiveGruppe;
+    const aktiveGruppe = gruppen.find(gruppe => gruppe.id === filterGruppenIds?.[0]);
+    mitgliederBadge.hidden = filterGruppenIds === null || filterGruppenIds.length !== 1 || !aktiveGruppe;
     if (aktiveGruppe) {
         const anzahl = aktiveGruppe.mitgliederAnzahl;
         mitgliederBadge.textContent = anzahl === 1 ? "1 Mitglied" : anzahl + " Mitglieder";
@@ -631,6 +623,9 @@ async function rezeptDetailsAnzeigen(rezept) {
     document.querySelector("#kopier-meldung").hidden = true;
     document.querySelector("#rezept-kopieren-button").disabled = false;
     ausgewaehltesRezept = rezept;
+    rezeptDetailDialog.querySelector('.dialog-aktionen').hidden = false;
+    document.querySelector('#rezept-aktions-meldung').hidden = true;
+    document.querySelector('#rezept-link-ausgabe').replaceChildren();
     rezeptDetailInhalt.replaceChildren();
     const auftakt = elementErstellen("div", "rezept-auftakt");
     auftakt.classList.toggle("mit-foto", Boolean(rezept.bild));
@@ -640,7 +635,8 @@ async function rezeptDetailsAnzeigen(rezept) {
     rezeptDetailDialog.setAttribute("aria-labelledby", titel.id);
     kopf.append(titel);
     const gruppe = gruppen.find(g => g.id === rezept.gruppenId);
-    if (!gruppe?.istPersoenlich) {
+    if (rezept.geteiltVon) kopf.append(elementErstellen("p", "rezept-ersteller", "Geteilt von " + rezept.geteiltVon));
+    if (!rezept.istFreigabe && !gruppe?.istPersoenlich) {
         kopf.append(elementErstellen("p", "rezept-ersteller", "Hinzugefügt von " + rezept.ersteller.anzeigename));
     }
     auftakt.append(kopf);
@@ -660,10 +656,11 @@ async function rezeptDetailsAnzeigen(rezept) {
     textBereich.append(elementErstellen("h3", "rezept-abschnitt-titel", "Zutaten und Zubereitung"));
     textBereich.append(elementErstellen("p", "rezept-text", rezept.text));
     rezeptDetailInhalt.append(textBereich);
-    rezeptBearbeitenButton.hidden = !darfRezepteBearbeiten(rezept.gruppenId);
-    rezeptLoeschenButton.hidden = !darfRezeptLoeschen(rezept);
+    rezeptBearbeitenButton.hidden = rezept.istFreigabe || !darfRezepteBearbeiten(rezept.gruppenId);
+    rezeptLoeschenButton.hidden = rezept.istFreigabe || !darfRezeptLoeschen(rezept);
     if (!rezeptDetailDialog.open) rezeptDetailDialog.showModal();
-    await aenderungenAnzeigen(rezept);
+    await rezeptZuordnungVorbereiten(rezept);
+    if (!rezept.istFreigabe && ausgewaehltesRezept === rezept) await aenderungenAnzeigen(rezept);
 }
 
 function formularZuruecksetzen() {
@@ -672,6 +669,10 @@ function formularZuruecksetzen() {
     bearbeiteteVersion = null;
     vorhandenerBildPfad = null;
     formularGeaendert = false;
+    formularGruppenIds = standardFormularGruppen();
+    formularAuftrag = null;
+    bearbeiteteGruppenKopien = [];
+    bearbeitungsZwischenstand = null;
     formularUeberschrift.textContent = "Rezept hinzufügen";
     speichernButton.textContent = "Rezept hinzufügen";
     abbrechenButton.hidden = true;
@@ -685,6 +686,9 @@ function rezeptBearbeiten(rezept) {
     localStorage.setItem("aktiveGruppenId", aktiveGruppenId);
     bearbeitetesRezeptId = rezept.id;
     bearbeiteteVersion = rezept.version;
+    bearbeiteteGruppenKopien = rezept.gruppenKopien || [{id:rezept.id,gruppen_id:rezept.gruppenId,version:rezept.version,erstellt_von:rezept.ersteller.id}];
+    formularGruppenIds = bearbeiteteGruppenKopien.map(r => Number(r.gruppen_id));
+    formularAuftrag = null;
     vorhandenerBildPfad = rezept.bildPfad;
     rezeptNameEingabe.value = rezept.name;
     rezeptTextEingabe.value = rezept.text;
@@ -753,36 +757,42 @@ async function bildEntfernen(bildPfad) {
 }
 
 async function rezeptSpeichern() {
-    if (!darfRezepteBearbeiten()) throw new Error("Du darfst in dieser Gruppe nur Rezepte ansehen.");
+    if (bearbeitetesRezeptId ? !darfRezepteBearbeiten() : !formularGruppenIds.length || formularGruppenIds.some(id => !darfRezepteBearbeiten(id))) throw new Error("Bitte wähle beschreibbare Zielgruppen.");
+    const removed = bearbeiteteGruppenKopien.filter(r => !formularGruppenIds.includes(Number(r.gruppen_id)));
+    if (removed.length && !await bestaetigungFragen("Gruppenkopien löschen?", "Die Kopien in folgenden Gruppen werden gelöscht: " + removed.map(r => gruppen.find(g => g.id === Number(r.gruppen_id))?.name).join(', ') + (!formularGruppenIds.length ? ". Du entfernst die letzte für dich sichtbare Kopie." : ". Andere Kopien bleiben erhalten."), "Kopien löschen", true)) return;
     const rezeptDaten = rezeptDatenAusFormular();
     const neuesBild = rezeptBildEingabe.files[0] || null;
     let neuerBildPfad = vorhandenerBildPfad;
     let neuesBildWurdeHochgeladen = false;
 
-    if (neuesBild) {
-        neuerBildPfad = await bildHochladen(neuesBild, aktiveGruppenId);
+    if (bearbeitungsZwischenstand?.auftrag === formularAuftrag) neuerBildPfad = bearbeitungsZwischenstand.bildPfad;
+    else if (neuesBild) {
+        neuerBildPfad = await bildHochladen(neuesBild, bearbeitetesRezeptId ? aktiveGruppenId : formularGruppenIds[0]);
         neuesBildWurdeHochgeladen = true;
     }
 
     const datenbankDaten = { ...rezeptDaten, bild_pfad: neuerBildPfad };
     try {
+        if (!formularAuftrag) formularAuftrag = crypto.randomUUID();
         if (bearbeitetesRezeptId) {
-            await serverFunktion("rezept-speichern", { id: bearbeitetesRezeptId, version: bearbeiteteVersion, daten: datenbankDaten });
+            let saved = bearbeitungsZwischenstand?.auftrag === formularAuftrag ? bearbeitungsZwischenstand : null;
+            if (!saved) {
+                saved = await serverFunktion("rezept-speichern", { id: bearbeitetesRezeptId, version: bearbeiteteVersion, daten: datenbankDaten });
+                bearbeitungsZwischenstand = {auftrag:formularAuftrag,version:saved.version,bildPfad:neuerBildPfad};
+            }
+            bearbeiteteVersion = saved.version;
+            const deletion = removed.map(r => ({...r, version: Number(r.id) === bearbeitetesRezeptId ? saved.version : r.version}));
+            await serverFunktion('rezept-gruppen', {aktion:'zuordnen',auftrag:formularAuftrag,id:bearbeitetesRezeptId,version:saved.version,gruppen:formularGruppenIds,entfernen:deletion});
         } else {
-            datenAusErgebnis(
-                await supabaseClient.from("rezepte").insert({
-                    ...datenbankDaten,
-                    gruppen_id: aktiveGruppenId,
-                    erstellt_von: aktiverBenutzer.id
-                }).select("id").single(),
-                "Das Rezept konnte nicht hinzugefügt werden."
-            );
+            await serverFunktion('rezept-gruppen', {aktion:'erstellen',auftrag:formularAuftrag,gruppen:formularGruppenIds,daten:datenbankDaten});
         }
     } catch (fehler) {
         if (neuesBildWurdeHochgeladen) await bildEntfernen(neuerBildPfad).catch(function () {});
+        if (bearbeitungsZwischenstand?.auftrag === formularAuftrag) throw new Error('Der Rezeptinhalt wurde gespeichert. Die Gruppenzuordnung ist noch offen: ' + fehler.message + ' Du kannst erneut speichern.');
         throw fehler;
     }
 
+    if (!bearbeitetesRezeptId && neuesBildWurdeHochgeladen) await bildEntfernen(neuerBildPfad).catch(() => {});
     if (neuesBildWurdeHochgeladen && vorhandenerBildPfad && vorhandenerBildPfad !== neuerBildPfad) {
         await bildEntfernen(vorhandenerBildPfad).catch(function (fehler) { console.warn(fehler.message); });
     }
@@ -1005,28 +1015,6 @@ document.addEventListener("click", function (event) {
     }
 });
 
-gruppenAuswahl.addEventListener("change", async function (event) {
-    event.stopPropagation();
-    const neuerEntwurf = aktiveAnsicht === "hinzufuegen" && !bearbeitetesRezeptId;
-    const istAlle = aktiveAnsicht === "rezepte" && gruppenAuswahl.value === "alle";
-    const neueGruppenId = istAlle ? aktiveGruppenId : Number(gruppenAuswahl.value);
-    if (aktiveAnsicht === "hinzufuegen" && !neuerEntwurf && formularGeaendert) {
-        const verwerfen = await bestaetigungFragen(
-            "Gruppe wechseln?", "Ungespeicherte Eingaben werden verworfen.", "Gruppe wechseln", true
-        );
-        if (!verwerfen) {
-            gruppenAuswahl.value = aktiveGruppenId;
-            return;
-        }
-    }
-    if (aktiveAnsicht === "rezepte") alleGruppenAnzeigen = istAlle;
-    aktiveGruppenId = neueGruppenId;
-    if (aktiveGruppenId) localStorage.setItem("aktiveGruppenId", aktiveGruppenId);
-    if (!neuerEntwurf) formularZuruecksetzen();
-    try { await rezepteLaden(); }
-    catch (fehler) { rezeptListe.replaceChildren(elementErstellen("p", "fehlermeldung", fehler.message)); }
-
-});
 
 neueGruppeButton.addEventListener("click", function () {
     gruppenFormular.hidden = false;
@@ -1059,8 +1047,8 @@ gruppenFormular.addEventListener("submit", async function (event) {
 });
 
 rezeptSuche.addEventListener("input", rezeptListeAnzeigen);
-rezeptFormular.addEventListener("input", function (event) { if (event.target !== gruppenAuswahl) formularGeaendert = true; });
-rezeptFormular.addEventListener("change", function (event) { if (event.target !== gruppenAuswahl) formularGeaendert = true; });
+rezeptFormular.addEventListener("input", function (event) { if (!event.target.closest('.mehrfachwahl')) { formularGeaendert = true; formularAuftrag = null; } });
+rezeptFormular.addEventListener("change", function (event) { if (!event.target.closest('.mehrfachwahl')) { formularGeaendert = true; formularAuftrag = null; } });
 rezeptFormular.addEventListener("submit", async function (event) {
     event.preventDefault();
     rezeptMeldung.textContent = "";
@@ -1135,8 +1123,13 @@ if (new URLSearchParams(window.location.search).has("einladung")) einladungsHinw
 async function anwendungStarten() {
     supabaseClient = supabaseVerbinden();
     await sitzungLaden();
+    if (rezeptLinkToken && !aktiverBenutzer) await geteiltesRezeptOeffnen();
 }
 
+authDialog.addEventListener('close', () => {
+    if (zuordnungNachAnmeldung && !aktiverBenutzer) { zuordnungNachAnmeldung = false; geteiltesRezeptOeffnen(); }
+});
+document.querySelector('#rezept-teilen-button').addEventListener('click', rezeptTeilen);
 erweiterungenInitialisieren();
 
 anwendungStarten().catch(function (fehler) {

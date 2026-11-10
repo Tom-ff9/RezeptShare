@@ -1,7 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
-const files = ['index.html', 'style.css', 'konfiguration.js', 'captcha.js', 'script.js', 'funktionen.js', 'gruppen.js', 'assets/profil-standard.svg', 'manifest.webmanifest', 'assets/icons/favicon-32.png', 'assets/icons/apple-touch-icon.png', 'assets/icons/icon-192.png', 'assets/icons/icon-512.png'];
+const files = ['index.html', 'style.css', 'konfiguration.js', 'captcha.js', 'script.js', 'funktionen.js', 'gruppen.js', 'rezeptgruppen.js', 'assets/profil-standard.svg', 'manifest.webmanifest', 'assets/icons/favicon-32.png', 'assets/icons/apple-touch-icon.png', 'assets/icons/icon-192.png', 'assets/icons/icon-512.png'];
 (async () => {
     const out = path.join(root, 'dist');
     await fs.rm(out, { recursive: true, force: true });

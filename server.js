@@ -12,6 +12,7 @@ const statischeDateien = {
     "/index.html": ["index.html", "text/html; charset=utf-8"],
     "/style.css": ["style.css", "text/css; charset=utf-8"],
     "/konfiguration.js": ["konfiguration.js", "text/javascript; charset=utf-8"],
+    "/rezeptgruppen.js": ["rezeptgruppen.js", "text/javascript; charset=utf-8"],
     "/gruppen.js": ["gruppen.js", "text/javascript; charset=utf-8"],
     "/funktionen.js": ["funktionen.js", "text/javascript; charset=utf-8"],
     "/assets/profil-standard.svg": ["assets/profil-standard.svg", "image/svg+xml"],

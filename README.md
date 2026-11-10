@@ -7,7 +7,8 @@ Eine Rezept-App für Familien und kleine Gruppen. Die statische Webseite kann au
 - Registrierung mit Anzeigename und Profilbild-Schritt direkt nach der Registrierung. „später festlegen“ verwendet die graue Standardsilhouette.
 - Accounteinstellungen: Name und Foto ändern, Konto dauerhaft löschen.
 - Persönliche Sammlung „Meine Rezepte“ und gemeinsame Gruppen mit Einladungslinks.
-- In der Rezeptliste zeigt die Gruppenauswahl „Alle“ die zugänglichen Rezepte aller Gruppen. Hinzufügen und Bearbeiten verwenden immer eine konkrete Gruppe; die Rechte richten sich nach der Gruppe des jeweiligen Rezepts.
+- „Gruppen filtern“ zeigt mehrere Gruppen gleichzeitig, mit Checkboxen und einer pro Account gespeicherten Auswahl. „Gruppen zuordnen“ erstellt unabhängige Kopien; Bearbeitungen bleiben auf die geöffnete Gruppenkopie beschränkt. Abwahl entfernt die Kopie nach Bestätigung und nur mit Löschrechten.
+- „Rezept teilen“ erstellt einen unveränderlichen Rezeptstand inklusive Bild. Der Link ist ohne Anmeldung lesbar; zum Übernehmen in eigene Gruppen ist eine Anmeldung nötig. Freigaben zeigen „Geteilt von …“, übermitteln keine Gruppeninformationen und entfallen bei Löschung des teilenden Accounts.
 - Admin: alle Rezepte bearbeiten/löschen, Einladungen, Rollen, Standardrolle für neue Beitritte und Adminübertragung.
 - Mitglied: alle Rezepte hinzufügen/bearbeiten, nur eigene löschen.
 - Beobachter: Rezepte und Bilder ansehen.
@@ -17,7 +18,23 @@ Eine Rezept-App für Familien und kleine Gruppen. Die statische Webseite kann au
 - Hinweise und entfernte Textstellen sind nach einem Kalendermonat nicht mehr lesbar und werden durch einen minütlichen Job physisch aus den Anwendungstabellen gelöscht. Der aktuelle Rezeptinhalt bleibt erhalten; es gibt kein dauerhaftes Änderungsarchiv. Provider-Backups unterliegen separat deren Aufbewahrung.
 - Kontolöschung erfordert Passwort und Bestätigung. Private Rezepte/Dateien werden gelöscht, gemeinsame Rezepte bleiben mit „Gelöschtes Konto“ erhalten. Admins müssen Gruppen mit weiteren Personen vorher übertragen.
 
-## Neues Update: Gruppenverwaltung
+## Neues Update: Mehrfachgruppen und Rezeptlinks
+
+Nach den beiden bisherigen Migrationen `supabase/migrations/202611100001_rezeptgruppen_teilen.sql` einmal im SQL Editor ausführen. Bestehende Rezepte erhalten jeweils eine eigene Familie; die Inhalte bleiben erhalten. Danach deployen:
+
+```bash
+supabase functions deploy rezept-gruppen --no-verify-jwt
+```
+
+`rezept-gruppen` unterstützt `ansehen` ohne Anmeldung und die authentifizierten Aktionen `teilen`, `zuordnungen`, `erstellen`, `zuordnen`, `uebernehmen`. Schreibaufträge verwenden eine UUID zur sicheren Wiederholung. SQL-Transaktionen prüfen Gruppen-, Quell- und Löschrechte sowie Rezeptversionen erneut unter Sperre. Öffentliche Links enthalten einen zufälligen Token und ausschließlich den Rezeptstand, Bild und Anzeigenamen. Die privaten Buckets werden nicht öffentlich geschaltet.
+
+Bilder werden für jede Zielgruppe und Freigabe separat gespeichert. Wird eine Datenbanktransaktion sicher abgelehnt, werden vorbereitete Dateien bereinigt. Bei unklarem Netzwerkstatus werden Dateien vorsichtshalber behalten; aktive Referenzen werden nie zur Fehlerbereinigung gelöscht. Solche verwaisten Dateien können später über die Gruppen-/Kontobereinigung entfernt werden. Freigabelinks haben in dieser Version kein Ablaufdatum und keine Verwaltungsoberfläche.
+
+Der Live-SQL-Test `tests/live-rezeptgruppen.sql` prüft zwei temporäre Konten, Kopien, Freigaben und Abwahl innerhalb einer vollständig zurückgerollten Transaktion. Die Browsertests verwenden simuliertes Supabase und simuliertes CAPTCHA.
+
+Backend zuerst deployen, danach das Frontend auf `main` pushen. Neue Installationen verwenden bereits das vollständige `supabase/schema.sql` und benötigen die Migrationen nicht zusätzlich.
+
+## Vorheriges Update: Gruppenverwaltung
 
 Wenn die erste Migration bereits ausgeführt wurde, jetzt **nur** `supabase/migrations/202611060002_gruppenverwaltung.sql` einmal im SQL Editor ausführen. Danach die neue Serverfunktion aus dem Projektordner deployen:
 
@@ -146,7 +163,7 @@ Ohne E-Mail-Bestätigung ist die eingetragene Adresse kein Identitätsnachweis. 
 
 `konfiguration.js` enthält nur die öffentliche Supabase-Projektadresse und den Publishable Key. hCaptcha-Sitekeys sind ebenfalls öffentlich. Datenzugriff wird durch RLS, Storage-Regeln und serverseitige Authentifizierung geschützt, nicht durch versteckte Frontend-Schlüssel. Service-Role-, SMTP- und CAPTCHA-Secret-Schlüssel gehören ausschließlich in serverseitige Einstellungen.
 
-`npm run build` erzeugt `dist/` aus einer ausdrücklichen Dateiliste: `index.html`, `style.css`, `konfiguration.js`, `captcha.js`, `script.js`, `funktionen.js`, `gruppen.js`, `assets/profil-standard.svg` und `.nojekyll`. Nur dieser Ordner wird veröffentlicht. SQL, Edge Functions, Tests und Dokumentation bleiben im öffentlichen Quellcode-Repository, werden aber nicht als Website ausgeliefert. Die alten Prototypseiten wurden entfernt. Lokale Daten unter `data/` bleiben erhalten und werden ignoriert.
+`npm run build` erzeugt `dist/` aus einer ausdrücklichen Dateiliste: `index.html`, `style.css`, `konfiguration.js`, `captcha.js`, `script.js`, `funktionen.js`, `gruppen.js`, `assets/profil-standard.svg` und `.nojekyll`. Zusätzlich werden `rezeptgruppen.js`, das App-Manifest und die Icon-Dateien ausgeliefert. Nur dieser Ordner wird veröffentlicht. SQL, Edge Functions, Tests und Dokumentation bleiben im öffentlichen Quellcode-Repository, werden aber nicht als Website ausgeliefert. Die alten Prototypseiten wurden entfernt. Lokale Daten unter `data/` bleiben erhalten und werden ignoriert.
 
 Vor dem lokalen Sicherungscommit wurden alle neun bestehenden Commits sowie die aktuellen Dateien auf Geheimschlüssel, private Schlüssel, Datenbankdateien und auffällige Mailadressen geprüft. Keine echten Geheimnisse oder privaten Nutzerdaten gefunden; Testadressen verwenden reservierte Beispieldomains. Das ist eine gezielte Prüfung, keine Garantie gegen jede mögliche Form vertraulicher Daten. Bei späteren Funden Zugangsdaten rotieren und die Veröffentlichung stoppen; Historie nur bewusst bereinigen.
 
