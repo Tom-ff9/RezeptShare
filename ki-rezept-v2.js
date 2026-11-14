@@ -187,9 +187,14 @@
     // Ueberschriften und teilweise durchgehende Textzeilen.
     const prepared = answer
       .replace(/\\\*/g, "*")
-      .replace(/(#{2,4}\s*\*{0,2}\d+[.)]\s+)/g, "\n$1")
-      .replace(/\s+\*\*(Zutaten|Ingredients|Kochanleitung|Zubereitung|Anleitung|Directions|Instructions)\s*:\*\*/gi, "\n**$1:**\n")
-      .replace(/\s+---\s+/g, "\n---\n");
+      .replace(/\s*---\s*/g, "\n---\n")
+      // Ueberschriften und Abschnittsnamen stehen in einigen Antworten
+      // hintereinander ohne Zeilenumbruch.
+      .replace(/\s+(?=#{2,4}\s+\*{0,2}\d+[.)]\s)/g, "\n")
+      .replace(/\s+(?=\*\*(?:Source|Quelle|Zutaten|Ingredients|Kochanleitung|Zubereitung|Anleitung|Directions|Instructions|Hinweis(?:\s+zu\s+Allergenen)?)\s*:)/gi, "\n")
+      .replace(/(\*\*(?:Zutaten|Ingredients|Kochanleitung|Zubereitung|Anleitung|Directions|Instructions)\s*:\*\*)\s*/gi, "$1\n")
+      .replace(/\s{2,}(?=-\s+\S)/g, "\n")
+      .replace(/\s{2,}(?=\d+[.)]\s+\S)/g, "\n");
     const lines = prepared.split(/\r?\n/).map(line => line.trim());
     const section = line => line.replace(/^#{1,5}\s*/, "").replace(/\*\*/g, "").replace(/:$/, "").trim().toLowerCase();
     const titleOf = line => {
@@ -277,7 +282,7 @@ ${answer.slice(0, 18000)}`;
   }
 
   function attach(message, answer) {
-    if (!message || !answer || typeof root.rezeptKIAnfrage !== "function") return;
+    if (!message || !answer) return;
     const button = el("button", "sekundaer-button ki-strukturieren", "Rezeptkarten aus dieser Antwort erstellen");
     button.type = "button";
     const feedback = el("p", "ki-rezept-feedback");
@@ -289,15 +294,9 @@ ${answer.slice(0, 18000)}`;
       feedback.textContent = "Rezeptkarten werden vorbereitet ...";
       holder.replaceChildren();
       try {
-        let recipes = extractFromAnswer(answer);
+        const recipes = extractFromAnswer(answer);
         if (!recipes.length) {
-          const raw = await root.rezeptKIAnfrage(promptForRecipes(answer));
-          const data = readJson(raw);
-          recipes = (Array.isArray(data.recipes) ? data.recipes : [])
-            .slice(0, maxRecipes).map(normaliseRecipe).filter(Boolean);
-        }
-        if (!recipes.length) {
-          feedback.textContent = "Aus dieser Antwort konnte kein vollständiges Rezept erkannt werden. Bitte frage gezielt nach einem Rezept mit Zutaten und Anleitung.";
+          feedback.textContent = "Die Antwort konnte nicht zuverlässig in Rezeptkarten zerlegt werden. Bitte frage nach einzelnen Rezepten mit getrennten Zutaten und nummerierter Anleitung.";
           return;
         }
         feedback.textContent = "KI-extrahierte Angaben bitte vor dem Speichern überprüfen.";
