@@ -73,8 +73,10 @@
       currentPhase = "server-" + data.phase;
       progressPhase.textContent = serverPhases[data.phase];
       const count = Number(data.recipe_count);
-      progressDetail.textContent = data.phase === "found" && Number.isInteger(count) && count >= 0 && count <= 100
-        ? count + " passende Rezepte gefunden. Die Antwort wird vorbereitet."
+      progressDetail.textContent = Number.isInteger(count) && count >= 0 && count <= 100
+        ? count + " Rezepte gefunden. " + (data.phase === "generating"
+          ? "Ollama formuliert die Antwort."
+          : "Die Anfrage wird weiterverarbeitet.")
         : "Bestätigter Verarbeitungsschritt vom Mac Studio. Die Gesamtdauer ist noch nicht vorhersagbar.";
       updateProgressTime();
     } catch (err) {
