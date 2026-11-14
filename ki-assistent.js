@@ -163,14 +163,31 @@
     if (error || !data.session) {
       throw new Error("Bitte melde dich erneut bei RezeptShare an.");
     }
-    const progressId = phaseChanged && typeof crypto.randomUUID === "function"
+    // Statuskanal einmal pruefen, bevor die optionale Kennung gesendet wird.
+    // Ohne installierten Rueckkanal bleibt die bisherige KI-Anfrage unveraendert.
+    const candidateId = phaseChanged && typeof crypto.randomUUID === "function"
       ? crypto.randomUUID() : null;
+    let progressId = null;
+    if (candidateId) {
+      try {
+        const check = await fetch(PROGRESS_URL + "?id=" + encodeURIComponent(candidateId), {
+          method: "GET",
+          cache: "no-store",
+          headers: {
+            "apikey": KI_PUBLIC_KEY,
+            "Authorization": "Bearer " + data.session.access_token
+          },
+          signal: AbortSignal.timeout(2000)
+        });
+        if (check.ok && (await check.json())?.phase === "waiting") progressId = candidateId;
+      } catch (_) { /* Der Statusdienst ist optional. */ }
+    }
     const requestMessages = nachrichten.map((message, i) => {
       if (!progressId || i !== nachrichten.length - 1 || message.role !== "user") return message;
       return {
         ...message,
-        // Kennung nur fuer die Python-API, dort vor dem Suchen entfernt.
-        content: message.content + "\\n[REZEPT_PROGRESS_ID:" + progressId + "]"
+        // Die Python-API entfernt diese Kennung vor Suchplanung und Modellaufruf.
+        content: message.content + "\n[REZEPT_PROGRESS_ID:" + progressId + "]"
       };
     });
     phaseChanged?.("waiting");
