@@ -472,3 +472,150 @@ body:has(#rezept-detail-dialog[open]) { overflow: hidden; }
 }
 
 #rezept-aktions-meldung, #rezept-link-ausgabe { max-width: 720px; margin-inline: auto; }
+
+
+/* KI-Kochassistent */
+
+.ki-ansicht {
+  width: 100%;
+  max-width: 850px;
+  margin: 0 auto;
+}
+
+.ki-kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.ki-kopf h2 {
+  margin: 0;
+}
+
+.ki-nachrichten {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 300px;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding: 1rem;
+  border: 1px solid #dce6dc;
+  border-radius: 16px;
+  background: #f6f8f5;
+}
+
+.ki-begruessung {
+  color: #526154;
+  line-height: 1.6;
+}
+
+.ki-nachricht {
+  max-width: 88%;
+  padding: 1rem;
+  border-radius: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.ki-nachricht strong {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.ki-nachricht-text {
+  white-space: pre-wrap;
+}
+
+.ki-user {
+  align-self: flex-end;
+  background: #214734;
+  color: white;
+}
+
+.ki-bot {
+  align-self: flex-start;
+  background: white;
+  color: #243528;
+  border: 1px solid #dce6dc;
+}
+
+.ki-formular {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.ki-formular textarea {
+  width: 100%;
+  min-height: 90px;
+  box-sizing: border-box;
+}
+
+#ki-status {
+  min-height: 1.4rem;
+  margin-top: 0.75rem;
+}
+
+@media (max-width: 600px) {
+  .ki-nachrichten {
+    min-height: 260px;
+    max-height: 50vh;
+  }
+
+  .ki-nachricht {
+    max-width: 95%;
+  }
+}
+
+
+/* KI-Assistent: anklickbare Beispielfragen */
+
+#ki-beispielfragen {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid #e0e5e1;
+  border-radius: 12px;
+}
+
+#ki-beispielfragen h3 {
+  margin: 0 0 1.25rem;
+  font-size: 1.1rem;
+}
+
+#ki-beispielfragen h4 {
+  margin: 1rem 0 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.ki-beispiel-liste {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.ki-beispiel-button {
+  width: auto;
+  max-width: 100%;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid #cbd8d0;
+  border-radius: 20px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ki-beispiel-button:hover,
+.ki-beispiel-button:focus-visible {
+  border-color: #315e48;
+  background: #eaf2ed;
+  color: #244b37;
+}

@@ -29,6 +29,7 @@
     <script src="gruppen.js" defer></script>
     <script src="rezeptgruppen.js" defer></script>
     <script src="script.js" defer></script>
+    <script src="ki-assistent.js" defer></script>
 </head>
 <body>
     <header class="seitenkopf">
@@ -37,6 +38,7 @@
             <button class="nav-button aktiv" type="button" data-ansicht="rezepte"><svg class="nav-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 10h30v44H18a6 6 0 0 1-6-6V16a6 6 0 0 1 6-6Z"/><path d="M20 10v44M12 44h8M28 37h12M28 44h9M29 29v-5a5 5 0 0 1 1-10 5 5 0 0 1 9 0 5 5 0 0 1 1 10v5Z"/></svg><span>Rezepte</span></button>
             <button class="nav-button" type="button" data-ansicht="hinzufuegen"><span aria-hidden="true">＋</span><span>Hinzufügen</span></button>
             <button class="nav-button" type="button" data-ansicht="gruppen" aria-label="Gruppen"><svg class="nav-icon" viewBox="0 0 64 48" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><circle cx="32" cy="12" r="8"/><circle cx="12" cy="17" r="6.5"/><circle cx="52" cy="17" r="6.5"/><path d="M17 44c0-18 30-18 30 0M2 41c0-10 8-15 16-11M62 41c0-10-8-15-16-11"/></svg><span class="gruppen-nav-text">Gruppen</span></button>
+            <button class="nav-button" type="button" data-ansicht="ki"><span aria-hidden="true">✦</span><span>KI-Assistent</span></button>
         </nav>
         <div id="benutzer-menue" class="benutzer-menue" hidden>
             <button id="profil-button" class="profil-button" type="button" aria-expanded="false" aria-controls="profil-auswahl">
@@ -50,10 +52,8 @@
             </div>
         </div>
     </header>
-
     <script src="captcha.js"></script>
     <script src="https://js.hcaptcha.com/1/api.js?render=explicit&onload=captchaInitialisieren" defer></script>
-
 <main>
         <section id="landing-bereich">
             <div class="hero">
@@ -70,12 +70,10 @@
             </div>
             <p id="landing-meldung" class="fehlermeldung" role="status"></p>
         </section>
-
         <div id="app-bereich" hidden>
             <section id="gruppen-kontext" class="gruppen-kontext">
                 <div id="gruppen-auswahl"></div>
             </section>
-
             <p id="gruppen-status" role="status" aria-live="polite"></p>
             <section id="rezepte-ansicht" class="app-ansicht" aria-labelledby="liste-ueberschrift">
                 <div class="ansicht-kopf">
@@ -104,7 +102,6 @@
                 </div>
                 <div id="rezept-liste" class="rezept-raster"></div>
             </section>
-
             <section id="hinzufuegen-ansicht" class="karte app-ansicht" aria-labelledby="formular-ueberschrift" hidden>
                 <h2 id="formular-ueberschrift" class="nur-screenreader">Rezept hinzufügen</h2>
                 <form id="rezept-formular">
@@ -131,7 +128,6 @@
                     </div>
                 </form>
             </section>
-
             <section id="gruppen-ansicht" class="app-ansicht" hidden>
                 <div class="gruppen-kopf">
                     <div><p class="eyebrow">Deine Sammlung</p><h2>Gruppen</h2></div>
@@ -147,14 +143,31 @@
                 <div id="gruppen-liste" class="gruppen-liste"></div>
                 <p id="gruppen-meldung" class="fehlermeldung" aria-live="polite"></p>
             </section>
+            <section id="ki-ansicht" class="app-ansicht ki-ansicht" aria-labelledby="ki-titel" hidden>
+                <div class="ki-kopf">
+                    <div>
+                        <p class="eyebrow">Dein Küchenhelfer</p>
+                        <h2 id="ki-titel">KI-Kochassistent</h2>
+                    </div>
+                    <button id="ki-neuer-chat" class="sekundaer-button" type="button">Neuer Chat</button>
+                </div>
+                <div id="ki-nachrichten" class="ki-nachrichten" role="log" aria-live="polite" aria-label="Chatverlauf">
+                    <p class="ki-begruessung">Hallo! Frage mich nach Rezepten, Zutaten oder Kochideen.</p>
+                </div>
+                <form id="ki-formular" class="ki-formular">
+                    <label for="ki-eingabe">Deine Frage</label>
+                    <textarea id="ki-eingabe" rows="3" maxlength="4000" placeholder="Welche Rezepte mit Kartoffeln und Feta kennst du?" required></textarea>
+                    <button id="ki-senden" class="primaer-button" type="submit">Frage senden</button>
+                </form>
+                <p id="ki-status" role="status" aria-live="polite"></p>
+            </section>
         </div>
     </main>
-
     <dialog id="auth-dialog" class="dialog auth-dialog" aria-labelledby="auth-titel">
         <button id="auth-schliessen" class="dialog-schliessen" type="button" aria-label="Schließen">×</button>
         <h2 id="auth-titel">Anmelden</h2>
                 <form id="anmelde-formular" hidden>
-                    
+
                     <label for="anmelde-email">E-Mail-Adresse</label>
                     <input id="anmelde-email" type="email" autocomplete="email" required>
                     <label for="anmelde-passwort">Passwort</label>
@@ -166,7 +179,7 @@
                     <button class="primaer-button" type="submit">Anmelden</button>
                 </form>
                 <form id="registrier-formular" hidden>
-                    
+
                     <label for="registrier-name">Dein Anzeigename</label>
                     <input id="registrier-name" type="text" maxlength="60" autocomplete="name" required>
                     <label for="registrier-email">E-Mail-Adresse</label>
@@ -180,14 +193,12 @@
                     </div>
                     <button class="primaer-button" type="submit">Konto erstellen</button>
                 </form>
-
         <p id="auth-meldung" class="fehlermeldung" aria-live="polite"></p>
         <div class="auth-wechsel">
             <button class="auth-link" type="button" data-auth-ansicht="anmelden">Zur Anmeldung</button>
             <button class="auth-link" type="button" data-auth-ansicht="registrieren">Konto erstellen</button>
         </div>
     </dialog>
-
     <dialog id="rezept-detail-dialog" class="dialog rezept-dialog">
         <button id="rezept-detail-schliessen" class="dialog-schliessen" type="button" aria-label="Rezept schließen">×</button>
         <div id="rezept-detail-inhalt"></div>
@@ -206,7 +217,6 @@
         <div id="rezept-link-ausgabe"></div>
         <p id="kopier-meldung" role="status" aria-live="polite" hidden></p>
     </dialog>
-
     <dialog id="bestaetigungs-dialog" class="dialog bestaetigungs-dialog">
         <h2 id="bestaetigungs-titel"></h2>
         <p id="bestaetigungs-text"></p>
@@ -215,7 +225,6 @@
             <button id="bestaetigung-ok" type="button">Bestätigen</button>
         </div>
     </dialog>
-
     <dialog id="profil-dialog" class="dialog bestaetigungs-dialog">
         <button id="profil-schliessen" class="dialog-schliessen" type="button" aria-label="Accounteinstellungen schließen">×</button>
         <h2 id="profil-titel">Dein Profilbild</h2>
@@ -256,4 +265,3 @@
     </dialog>
 </body>
 </html>
-

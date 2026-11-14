@@ -314,7 +314,8 @@ function ansichtAnzeigen(ansichtName) {
     appAnsichten.forEach(function (ansicht) {
         ansicht.hidden = ansicht.id !== ansichtName + "-ansicht";
     });
-    gruppenKontext.hidden = ansichtName === "gruppen";
+gruppenKontext.hidden =
+  ansichtName === "gruppen" || ansichtName === "ki";
     gruppenAuswahlPositionieren();
     navigationsButtons.forEach(function (button) {
         const istAktiv = button.dataset.ansicht === ansichtName;

@@ -21,8 +21,9 @@ const statischeDateien = {
     "/assets/icons/apple-touch-icon.png": ["assets/icons/apple-touch-icon.png", "image/png"],
     "/assets/icons/icon-192.png": ["assets/icons/icon-192.png", "image/png"],
     "/assets/icons/icon-512.png": ["assets/icons/icon-512.png", "image/png"],
-    "/captcha.js": ["captcha.js", "text/javascript; charset=utf-8"],
-    "/script.js": ["script.js", "text/javascript; charset=utf-8"]
+	"/captcha.js": ["captcha.js", "text/javascript; charset=utf-8"],
+	"/script.js": ["script.js", "text/javascript; charset=utf-8"],
+	"/ki-assistent.js": ["ki-assistent.js", "text/javascript; charset=utf-8"]
 };
 
 async function anfrageBearbeiten(request, response) {
