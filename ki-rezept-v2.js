@@ -195,7 +195,7 @@
     const titleOf = line => {
       const clean = line.replace(/\\\*/g, "*").trim();
       const numbered = clean.match(/^#{2,4}\s+\*{0,2}(\d+)[.)]\s+(.+?)(?:\*{2})?\s*$/)
-        || clean.match(/^\*{0,2}(\d+)[.)]\s+(.+?)(?:\*{2})?\s*$/);
+        || clean.match(/^\*{2}(\d+)[.)]\s+(.+?)\*{2}\s*$/);
       if (numbered) return numbered[2].replace(/^\*\*|\*\*$/g, "").trim();
       const normal = clean.match(/^#{2,4}\s+(.+)$/);
       const title = normal && normal[1].replace(/\*\*/g, "").trim();
