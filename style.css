@@ -619,3 +619,21 @@ body:has(#rezept-detail-dialog[open]) { overflow: hidden; }
   background: #eaf2ed;
   color: #244b37;
 }
+
+
+/* Version 2: sichere KI-Rezeptvorschau und Portionsumrechnung */
+.ki-strukturieren { margin-top: 12px; }
+.ki-rezept-karten { display: grid; gap: 16px; margin-top: 12px; }
+.ki-rezept-karte { background: var(--flaeche, #fff); color: var(--text, #24332a); border: 1px solid var(--linie, #dce2dc); border-radius: 12px; padding: 18px; max-width: 100%; }
+.ki-rezept-karte h4 { margin: 0 0 14px; font-size: 1.1rem; }
+.ki-portionen { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.ki-portionen label { display: flex; flex-direction: column; gap: 5px; flex: 1 1 160px; font-size: .9rem; font-weight: 600; }
+.ki-portionen input { min-width: 0; max-width: 180px; padding: 8px 10px; border: 1px solid var(--linie, #ccc); border-radius: 7px; font: inherit; }
+.ki-rezept-hinweis { color: var(--sekundaer-text, #53655a); font-size: .85rem; line-height: 1.45; }
+.ki-rezept-vorschau { white-space: normal; overflow-wrap: anywhere; }
+.ki-rezept-vorschau h5 { font-size: 1rem; margin: 15px 0 7px; }
+.ki-rezept-vorschau ul, .ki-rezept-vorschau ol { padding-left: 1.6rem; }
+.ki-rezept-vorschau li { margin: 5px 0; }
+.ki-rezept-aktionen { margin-top: 16px; }
+.ki-rezept-aktionen button { max-width: 100%; white-space: normal; }
+.ki-rezept-feedback { font-size: .88rem; color: var(--sekundaer-text, #53655a); }
