@@ -89,4 +89,20 @@ assert.equal(fromSource[1].ingredients[1].quantity, 0.5);
 assert.equal(ingredientLine(fromSource[0].ingredients[0], null, null), "2 Tassen Wasser");
 assert(recipeText(fromSource[0], null, null).includes("Portionen: nicht angegeben"));
 
+
+// Derselbe Antworttyp wird in manchen Browseransichten als langer Text
+// mit mehreren Leerzeichen statt Zeilenumbruechen uebermittelt.
+const compactSource = sourceAnswer.replace(/\n/g, "   ");
+const compactRecipes = extractFromAnswer(compactSource);
+assert.equal(compactRecipes.length, 2);
+assert.equal(compactRecipes[0].ingredients.length, 3);
+assert.equal(compactRecipes[1].steps.length, 2);
+
+// Die Originalrezepte enthalten oft mehrere nummerierte Kochschritte.
+const longSteps = sourceAnswer.replace(
+  "2. Reis unterrühren, abdecken und ruhen lassen.",
+  "2. Reis unterrühren, abdecken und ruhen lassen.   3. Gut umrühren und servieren."
+);
+assert.equal(extractFromAnswer(longSteps)[0].steps.length, 3);
+
 console.log("KI-Rezept-V2-Tests erfolgreich.");
