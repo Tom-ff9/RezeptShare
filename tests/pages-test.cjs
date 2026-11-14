@@ -14,6 +14,11 @@ for (const [, ref] of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
     assert(url.pathname.startsWith('/RezeptShare/'));
     assert(fs.existsSync(path.join(dist, url.pathname.slice('/RezeptShare/'.length))), ref);
 }
+assert(html.includes('id="ki-fortschritt"'), 'KI-Fortschrittsanzeige fehlt');
+assert(html.includes('role="progressbar"'), 'Animierter Statusbalken fehlt');
+const kiScript = fs.readFileSync(path.join(dist, 'ki-assistent.js'), 'utf8');
+assert(kiScript.includes('progressStage("display")'), 'KI-Anfrage muss Fortschritt aktualisieren');
+assert(kiScript.includes('stopProgress();'), 'KI-Fortschritt muss aufgeraeumt werden');
 const manifest = JSON.parse(fs.readFileSync(path.join(dist, 'manifest.webmanifest'), 'utf8'));
 assert.equal(manifest.start_url, './');
 assert.equal(manifest.scope, './');
