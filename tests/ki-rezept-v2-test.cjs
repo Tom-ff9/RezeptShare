@@ -79,8 +79,8 @@ const sourceAnswer = [
 ].join("\n");
 const fromSource = extractFromAnswer(sourceAnswer);
 assert.equal(fromSource.length, 2);
-assert.equal(fromSource[0].title, "Gluten Free Rice Chicken Stuffing");
-assert.equal(fromSource[1].title, "Gluten-free Chicken Fried Brown Rice");
+assert.equal(fromSource[0].title, "Glutenfreie Reis-Hähnchen-Füllung");
+assert.equal(fromSource[1].title, "Gebratener Naturreis mit Hähnchen (glutenfrei)");
 assert.equal(fromSource[0].sourceUrl, "https://www.allrecipes.com/recipe/230118/gluten-free-rice-chicken-stuffing/");
 assert.equal(fromSource[0].basePortions, null);
 assert.equal(fromSource[0].steps.length, 2);
