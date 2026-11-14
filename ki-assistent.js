@@ -18,7 +18,7 @@
     "Rechne US-Masse um: 1 lb = 453,592 g, 1 oz Gewicht = 28,3495 g, 1 US fl oz = 29,5735 ml, 1 US gallon = 3,78541 l.",
     "US cups und Tassen sind Volumen (ca. 240 ml). Ohne bekannte Dichte darf daraus keine Grammangabe berechnet werden.",
     "Behalte Zutaten, Arbeitsschritte, Rezeptidentitaet und originale Quellen-URLs bei; erfinde keine Angaben."
-  ].join("\\n");
+  ].join("\n");
 
   const PROGRESS_URL =
     "https://pwrrqwojvjoyclfmebnl.supabase.co/functions/v1/ki-fortschritt";
