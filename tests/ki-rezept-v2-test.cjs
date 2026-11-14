@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { normaliseRecipe, ingredientLine, recipeText, validPortions, extractFromAnswer, parseQuantity } = require("../ki-rezept-v2.js");
+const { normaliseRecipe, ingredientLine, recipeText, validPortions, extractFromAnswer, parseQuantity, metricIngredients, germanTitle, localizeAnswer } = require("../ki-rezept-v2.js");
 
 assert.equal(validPortions(4), 4);
 assert.equal(validPortions(0), null);
@@ -104,5 +104,39 @@ const longSteps = sourceAnswer.replace(
   "2. Reis unterrühren, abdecken und ruhen lassen.   3. Gut umrühren und servieren."
 );
 assert.equal(extractFromAnswer(longSteps)[0].steps.length, 3);
+
+
+assert.equal(metricIngredients("1 lb Pilze"), "454 g Pilze");
+assert.equal(metricIngredients("4 Unzen weiche Frischkäse"), "113 g weiche Frischkäse");
+assert.equal(metricIngredients("1/2 Tasse Schlagsahne"), "120 ml Schlagsahne");
+assert.equal(metricIngredients("2 fl oz Sahne"), "59,15 ml Sahne");
+assert.equal(metricIngredients("1 gallon Brühe"), "3,79 l Brühe");
+assert.equal(metricIngredients("1 cup Mehl"), "240 ml Mehl"); // Volumen, nicht Gramm
+assert.equal(metricIngredients("100 g Pilze"), "100 g Pilze");
+assert.equal(metricIngredients("500 ml Wasser"), "500 ml Wasser");
+assert.equal(metricIngredients("1 Pfund Mehl"), "1 Pfund Mehl"); // nicht eindeutig
+assert.equal(germanTitle("Nuts And Cream Stuffed Mushrooms"), "Mit Nüssen und Frischkäse gefüllte Champignons");
+assert.equal(germanTitle("Unknown Recipe"), "Unknown Recipe"); // nicht raten
+const englishAnswer = [
+  "### **1. Nuts And Cream Stuffed Mushrooms**",
+  "**Quelle:** [Originalrezept](https://www.food.com/recipe/nuts-and-cream-stuffed-mushrooms-451879)",
+  "**Zutaten:**",
+  "- 1 lb Pilze",
+  "- 4 Unzen weiche Frischkäse",
+  "- 1/2 Tasse Schlagsahne",
+  "**Kochanleitung:**",
+  "1. Pilze füllen und backen."
+].join("\n");
+const germanAnswer = localizeAnswer(englishAnswer);
+assert(germanAnswer.includes("Mit Nüssen und Frischkäse gefüllte Champignons"));
+assert(germanAnswer.includes("454 g Pilze"));
+assert(germanAnswer.includes("113 g weiche Frischkäse"));
+assert(germanAnswer.includes("120 ml Schlagsahne"));
+assert(germanAnswer.includes("https://www.food.com/recipe/nuts-and-cream-stuffed-mushrooms-451879"));
+const germanCards = extractFromAnswer(germanAnswer);
+assert.equal(germanCards.length, 1);
+assert.equal(germanCards[0].ingredients[0].quantity, 454);
+assert.equal(germanCards[0].ingredients[0].unit, "g");
+assert.equal(germanCards[0].title, "Mit Nüssen und Frischkäse gefüllte Champignons");
 
 console.log("KI-Rezept-V2-Tests erfolgreich.");
