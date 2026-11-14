@@ -45,6 +45,9 @@ assert.equal(parsed.length, 1);
 assert.equal(parsed[0].title, "Kartoffeln mit Rosmarin");
 assert.equal(parsed[0].ingredients.length, 2);
 assert.equal(parsed[0].basePortions, 4);
+assert.equal(extractFromAnswer(message.replace("Portionen: 4", "4 Portionen"))[0].basePortions, 4);
+assert.equal(extractFromAnswer(message.replace("Portionen: 4", "Portions: 6"))[0].basePortions, 6);
+assert.equal(extractFromAnswer(message.replace("Portionen: 4", "Portionen unbekannt"))[0].basePortions, null);
 assert.equal(parsed[0].steps.length, 2);
 assert.equal(extractFromAnswer("Keine passenden Rezepte gefunden.").length, 0);
 
