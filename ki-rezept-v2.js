@@ -6,6 +6,83 @@
 (function (root) {
   const maxRecipes = 5;
 
+  // Kuechenmasse aus US-Rezeptquellen. "cup" und "Tasse" sind Volumen,
+  // keine Gramm: Ohne Zutatendichte ist eine Masseneinheit nicht ableitbar.
+  const imperial = Object.freeze({
+    lb: { factor: 453.59237, unit: "g" },
+    lbs: { factor: 453.59237, unit: "g" },
+    pound: { factor: 453.59237, unit: "g" },
+    pounds: { factor: 453.59237, unit: "g" },
+    pfund: null, // Deutsches Pfund ist mehrdeutig; nicht umrechnen.
+    oz: { factor: 28.349523125, unit: "g" },
+    ounce: { factor: 28.349523125, unit: "g" },
+    ounces: { factor: 28.349523125, unit: "g" },
+    unze: { factor: 28.349523125, unit: "g" },
+    unzen: { factor: 28.349523125, unit: "g" },
+    "fl oz": { factor: 29.5735295625, unit: "ml" },
+    "fluid ounce": { factor: 29.5735295625, unit: "ml" },
+    "fluid ounces": { factor: 29.5735295625, unit: "ml" },
+    gal: { factor: 3.785411784, unit: "l" },
+    gallon: { factor: 3.785411784, unit: "l" },
+    gallons: { factor: 3.785411784, unit: "l" },
+    gallone: { factor: 3.785411784, unit: "l" },
+    gallonen: { factor: 3.785411784, unit: "l" },
+    cup: { factor: 240, unit: "ml" },
+    cups: { factor: 240, unit: "ml" },
+    tasse: { factor: 240, unit: "ml" },
+    tassen: { factor: 240, unit: "ml" },
+    tbsp: { factor: 15, unit: "ml" },
+    tsp: { factor: 5, unit: "ml" }
+  });
+  const imperialUnitPattern = /(\d+(?:[.,]\d+)?|\d+\s*\/\s*\d+)\s*(fluid ounces?|fl\.?\s*oz\.?|gallons?|gallonen?|gallone|gal\.?|pounds?|lbs?\.?|ounces?|oz\.?|unzen?|cups?|tassen?|tbsp\.?|tsp\.?)\b/gi;
+
+  function amountNumber(raw) {
+    const value = raw.replace(/\s+/g, "").replace(",", ".");
+    if (value.includes("/")) {
+      const [a, b] = value.split("/").map(Number);
+      return b > 0 ? a / b : NaN;
+    }
+    return Number(value);
+  }
+
+  function metricNumber(value) {
+    const decimals = value >= 100 ? 0 : value >= 10 ? 1 : 2;
+    return new Intl.NumberFormat("de-DE", { maximumFractionDigits: decimals }).format(value);
+  }
+
+  function metricIngredients(text) {
+    if (typeof text !== "string") return text;
+    return text.replace(imperialUnitPattern, (whole, number, rawUnit) => {
+      const unit = rawUnit.toLowerCase().replace(/\s+/g, " ").replace(/\.$/, "");
+      const conversion = imperial[unit];
+      const amount = amountNumber(number);
+      if (!conversion || !Number.isFinite(amount) || amount <= 0) return whole;
+      const metric = amount * conversion.factor;
+      return metricNumber(metric) + " " + conversion.unit;
+    });
+  }
+
+  // Typische historische Titel koennen ohne zusaetzlichen Modellaufruf
+  // uebersetzt werden. Andere Titel soll das KI-Backend auf Deutsch liefern.
+  const knownTitles = Object.freeze({
+    "nuts and cream stuffed mushrooms": "Mit Nüssen und Frischkäse gefüllte Champignons",
+    "gluten free rice chicken stuffing": "Glutenfreie Reis-Hähnchen-Füllung",
+    "gluten-free chicken fried brown rice": "Gebratener Naturreis mit Hähnchen (glutenfrei)",
+    "no egg fried rice": "Gebratener Reis ohne Ei",
+    "gluten-free hot breakfast cereal": "Glutenfreier warmer Frühstücksbrei"
+  });
+  function germanTitle(title) {
+    return knownTitles[title.toLowerCase().trim()] || title;
+  }
+
+  function localizeAnswer(answer) {
+    if (typeof answer !== "string") return answer;
+    // Nur Titelzeilen ersetzen; URLs und Quellen unveraendert lassen.
+    const titles = answer.replace(/(#{2,4}\s+\*{0,2}\d+[.)]\s+)([^\r\n*]+)(\*{0,2})/g,
+      (whole, prefix, title, suffix) => prefix + germanTitle(title.trim()) + suffix);
+    return metricIngredients(titles);
+  }
+
   function readJson(answer) {
     if (typeof answer !== "string") throw new Error("Keine Rezeptdaten erhalten.");
     const fenced = answer.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -20,7 +97,7 @@
 
   function normaliseRecipe(value) {
     if (!value || typeof value !== "object") return null;
-    const title = typeof value.title === "string" ? value.title.trim().slice(0, 120) : "";
+    const title = typeof value.title === "string" ? germanTitle(value.title.trim()).slice(0, 120) : "";
     const steps = Array.isArray(value.steps)
       ? value.steps.filter(s => typeof s === "string" && s.trim()).map(s => s.trim().slice(0, 3000)).slice(0, 40)
       : [];
@@ -161,7 +238,7 @@
   }
 
   function parseQuantity(original) {
-    const line = original.trim();
+    const line = metricIngredients(original.trim());
     const match = line.match(/^(\d+\/\d+|\d+(?:[.,]\d+)?)\s*(kg|g|mg|ml|l|EL|TL|Esslöffel|Teelöffel|Tassen?|Becher|Prisen?|St(?:ue|ü)ck|cups?|tbsp|tsp|pcs?)?\s+(.+)$/i);
     if (!match) return { name: line, quantity: null, unit: "", original: line };
     let amount;
@@ -307,7 +384,7 @@ ${answer.slice(0, 18000)}`;
     });
   }
 
-  const api = { attach, normaliseRecipe, ingredientLine, recipeText, validPortions, readJson, extractFromAnswer, parseQuantity };
+  const api = { attach, normaliseRecipe, ingredientLine, recipeText, validPortions, readJson, extractFromAnswer, parseQuantity, metricIngredients, germanTitle, localizeAnswer };
   root.RezeptShareKIV2 = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);
