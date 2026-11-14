@@ -225,7 +225,10 @@
         .map(line => line.replace(/^\d+[.)]\s*/, "").replace(/^[-*•]\s*/, "").trim())
         .filter(line => line.length > 5 && !/^https?:\/\//.test(line))
         .slice(0, 40);
-      const portionMatch = cleaned.slice(0, directionIndex).join(" ").match(/(\d{1,3})\s*(?:portionen|portions|personen|servings)/i);
+      const description = cleaned.slice(0, directionIndex).join(" ");
+      // Sowohl "Portionen: 4" als auch "4 Portionen" erkennen.
+      const portionMatch = description.match(/(?:portionen|portions|personen|servings)\s*:\s*(\d{1,3})\b/i)
+        || description.match(/\b(\d{1,3})\s*(?:portionen|portions|personen|servings)\b/i);
       const urls = segment.join(" ").match(/https?:\/\/[^\s)\]]+/g) || [];
       const parsed = normaliseRecipe({
         title, base_portions: portionMatch ? Number(portionMatch[1]) : null,
