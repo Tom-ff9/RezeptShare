@@ -99,7 +99,7 @@
     const targetLabel = el("label", "", "Gewünschte Portionen");
     const targetInput = el("input");
     targetInput.type = "number"; targetInput.min = "1"; targetInput.max = "100";
-    targetInput.value = recipe.basePortions || "4";
+    targetInput.value = recipe.basePortions || "";
     targetLabel.append(targetInput);
     controls.append(baseLabel, targetLabel);
     card.append(controls);
@@ -117,10 +117,13 @@
       const base = validPortions(baseInput.value);
       const target = validPortions(targetInput.value);
       const canScale = !!base && !!target;
-      importButton.disabled = !canScale;
+      const original = !baseInput.value && !targetInput.value;
+      importButton.disabled = !canScale && !original;
       hint.textContent = canScale
-        ? "Automatische Umrechnung nur bei eindeutig angegebenen Zahlen. Bitte Mengen, Zutaten und Quelle vor dem Speichern prüfen."
-        : "Bitte Ausgangs- und Wunschportionen (1 bis 100) angeben. Unklare Mengen werden nicht umgerechnet.";
+        ? "Mengen werden proportional umgerechnet. Bitte Zutaten und Einheiten vor dem Speichern prüfen."
+        : original
+          ? "Keine Portionszahl im Rezept angegeben: Du kannst das Rezept unverändert übernehmen oder beide Portionsfelder für eine Umrechnung ausfüllen."
+          : "Bitte beide Portionsfelder angeben oder beide leer lassen, um die Originalmengen zu übernehmen.";
       preview.replaceChildren();
       const heading = el("h5", "", "Zutaten");
       const list = el("ul");
@@ -139,7 +142,7 @@
     targetInput.addEventListener("input", update);
     importButton.addEventListener("click", async () => {
       const base = validPortions(baseInput.value), target = validPortions(targetInput.value);
-      if (!base || !target) return;
+      if ((!base || !target) && (baseInput.value || targetInput.value)) return;
       importButton.disabled = true;
       feedback.textContent = "";
       try {
@@ -159,7 +162,7 @@
 
   function parseQuantity(original) {
     const line = original.trim();
-    const match = line.match(/^(\d+(?:[.,]\d+)?|\d+\/\d+)\s*(kg|g|mg|ml|l|EL|TL|St(?:ue|ü)ck|cups?|tbsp|tsp|pcs?)?\s+(.+)$/i);
+    const match = line.match(/^(\d+\/\d+|\d+(?:[.,]\d+)?)\s*(kg|g|mg|ml|l|EL|TL|Esslöffel|Teelöffel|Tassen?|Becher|Prisen?|St(?:ue|ü)ck|cups?|tbsp|tsp|pcs?)?\s+(.+)$/i);
     if (!match) return { name: line, quantity: null, unit: "", original: line };
     let amount;
     if (match[1].includes("/")) {
@@ -171,12 +174,7 @@
     if (!Number.isFinite(amount) || amount <= 0) {
       return { name: line, quantity: null, unit: "", original: line };
     }
-    return {
-      name: match[3].trim(),
-      quantity: amount,
-      unit: match[2] || "",
-      original: line
-    };
+    return { name: match[3].trim(), quantity: amount, unit: match[2] || "", original: line };
   }
 
   // Direkte Erkennung ueblicher Chatantworten: keine weitere KI-Abfrage noetig.
@@ -184,22 +182,38 @@
   // vermeintlich vollstaendiges Rezept erzeugt.
   function extractFromAnswer(answer) {
     if (typeof answer !== "string" || !answer.trim()) return [];
-    const lines = answer.split(/\r?\n/);
+
+    // Die Assistentenantworten verwenden teilweise Markdown mit fettgedruckten
+    // Ueberschriften und teilweise durchgehende Textzeilen.
+    const prepared = answer
+      .replace(/\\\*/g, "*")
+      .replace(/(#{2,4}\s*\*{0,2}\d+[.)]\s+)/g, "\n$1")
+      .replace(/\s+\*\*(Zutaten|Ingredients|Kochanleitung|Zubereitung|Anleitung|Directions|Instructions)\s*:\*\*/gi, "\n**$1:**\n")
+      .replace(/\s+---\s+/g, "\n---\n");
+    const lines = prepared.split(/\r?\n/).map(line => line.trim());
+    const section = line => line.replace(/^#{1,5}\s*/, "").replace(/\*\*/g, "").replace(/:$/, "").trim().toLowerCase();
+    const titleOf = line => {
+      const clean = line.replace(/\\\*/g, "*").trim();
+      const numbered = clean.match(/^#{2,4}\s+\*{0,2}(\d+)[.)]\s+(.+?)(?:\*{2})?\s*$/)
+        || clean.match(/^\*{0,2}(\d+)[.)]\s+(.+?)(?:\*{2})?\s*$/);
+      if (numbered) return numbered[2].replace(/^\*\*|\*\*$/g, "").trim();
+      const normal = clean.match(/^#{2,4}\s+(.+)$/);
+      const title = normal && normal[1].replace(/\*\*/g, "").trim();
+      return title && !/^(Zutaten|Ingredients|Kochanleitung|Zubereitung|Anleitung|Directions|Instructions|Quelle|Source)\b/i.test(title) ? title : null;
+    };
+
     const segments = [];
     let current = [];
-    const heading = line => {
-      const clean = line.trim();
-      const h = clean.match(/^#{2,4}\s+(?:\d+[.)]\s*)?(.+)$/);
-      const bold = clean.match(/^\d+[.)]\s+\*\*([^*]+)\*\*$/);
-      const named = clean.match(/^\*\*(?:Rezept|Recipe)\s+\d+\s*:\s*([^*]+)\*\*$/i);
-      const title = (h?.[1] || bold?.[1] || named?.[1] || "").replace(/\*\*/g, "").trim();
-      return title && !/^(Zutaten|Ingredients|Zubereitung|Anleitung|Directions|Instructions|Quelle|Source)\b/i.test(title) ? title : null;
-    };
     for (const line of lines) {
-      const title = heading(line);
-      if (title && current.length) {
+      const title = titleOf(line);
+      if (title && current.some(l => titleOf(l))) {
         segments.push(current);
         current = [];
+      }
+      if (line === "---" && current.some(l => titleOf(l))) {
+        segments.push(current);
+        current = [];
+        continue;
       }
       current.push(line);
     }
@@ -207,34 +221,36 @@
 
     const output = [];
     for (const segment of segments) {
-      const cleaned = segment.map(line => line.trim());
-      const section = line => line.replace(/^#{1,5}\s*/, "").replace(/\*\*/g, "").replace(/:$/, "").trim().toLowerCase();
-      const ingredientIndex = cleaned.findIndex(line => /^(zutaten|ingredients)$/i.test(section(line)));
-      const directionIndex = cleaned.findIndex(line => /^(zubereitung|anleitung|directions|instructions|zubereitungsschritte)$/i.test(section(line)));
+      const heading = segment.find(titleOf);
+      const title = heading && titleOf(heading);
+      if (!title) continue;
+      const ingredientIndex = segment.findIndex(line => /^(zutaten|ingredients)$/i.test(section(line)));
+      const directionIndex = segment.findIndex(line => /^(koch(?:anleitung)?|zubereitung|anleitung|directions|instructions|zubereitungsschritte)$/i.test(section(line)));
       if (ingredientIndex < 0 || directionIndex <= ingredientIndex) continue;
-      let title = cleaned.slice(0, ingredientIndex).map(heading).filter(Boolean).pop();
-      if (!title) {
-        const candidates = cleaned.slice(0, ingredientIndex).filter(line => line && !/^(hier|gerne|ich|das|rezept|folgende|fuer|für)\b/i.test(line));
-        title = candidates.length ? candidates[candidates.length - 1].replace(/^[#*\d.)\s]+/, "").replace(/\*\*/g, "").slice(0, 120) : "";
-      }
-      const ingredientLines = cleaned.slice(ingredientIndex + 1, directionIndex)
+
+      const ingredientLines = segment.slice(ingredientIndex + 1, directionIndex)
         .map(line => line.replace(/^[-*•]\s*/, "").replace(/^\d+[.)]\s*/, "").trim())
-        .filter(Boolean);
-      const instructionLines = cleaned.slice(directionIndex + 1)
-        .filter(line => line && !/^(Quelle|Source|Link|Bild|Image)\s*:/i.test(line))
-        .map(line => line.replace(/^\d+[.)]\s*/, "").replace(/^[-*•]\s*/, "").trim())
-        .filter(line => line.length > 5 && !/^https?:\/\//.test(line))
-        .slice(0, 40);
-      const description = cleaned.slice(0, directionIndex).join(" ");
-      // Sowohl "Portionen: 4" als auch "4 Portionen" erkennen.
-      const portionMatch = description.match(/(?:portionen|portions|personen|servings)\s*:\s*(\d{1,3})\b/i)
-        || description.match(/\b(\d{1,3})\s*(?:portionen|portions|personen|servings)\b/i);
-      const urls = segment.join(" ").match(/https?:\/\/[^\s)\]]+/g) || [];
+        .filter(line => line && !/^(Quelle|Source|Hinweis)\s*:/i.test(line) && !/^https?:\/\//.test(line));
+
+      const steps = [];
+      for (const line of segment.slice(directionIndex + 1)) {
+        if (/^\*{0,2}(?:Hinweis|Quelle|Source|Allergene|Allergenhinweis)\s*:/i.test(line)) break;
+        if (!line || line === "---") continue;
+        const step = line.replace(/^\d+[.)]\s*/, "").replace(/^[-*•]\s*/, "").trim();
+        if (step.length > 5 && !/^https?:\/\//i.test(step)) steps.push(step);
+      }
+      const before = segment.slice(0, directionIndex).join(" ");
+      const portionMatch = before.match(/(?:portionen|portions|personen|servings)\s*:\s*(\d{1,3})\b/i)
+        || before.match(/\b(\d{1,3})\s*(?:portionen|portions|personen|servings)\b/i);
+      // Markdown-Quellverweis: [Originalrezept](https://...).
+      const sourceLine = segment.find(line => /(?:source|quelle)\s*:/i.test(line)) || "";
+      const sourceMatch = sourceLine.match(/https?:\/\/[^\s)\]>]+/i);
       const parsed = normaliseRecipe({
-        title, base_portions: portionMatch ? Number(portionMatch[1]) : null,
+        title,
+        base_portions: portionMatch ? Number(portionMatch[1]) : null,
         ingredients: ingredientLines.map(parseQuantity),
-        steps: instructionLines,
-        source_url: urls[0] || ""
+        steps,
+        source_url: sourceMatch ? sourceMatch[0] : ""
       });
       if (parsed) output.push(parsed);
       if (output.length >= maxRecipes) break;
