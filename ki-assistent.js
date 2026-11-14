@@ -9,6 +9,9 @@
   // NIEMALS den secret/service_role Key einsetzen.
   const KI_PUBLIC_KEY = "sb_publishable_-ql3ps2lnSnKtmJKeKK2Fg_EESrNR4j";
 
+  const PROGRESS_URL =
+    "https://pwrrqwojvjoyclfmebnl.supabase.co/functions/v1/ki-fortschritt";
+
   const form = document.querySelector("#ki-formular");
   const input = document.querySelector("#ki-eingabe");
   const output = document.querySelector("#ki-nachrichten");
@@ -31,6 +34,76 @@
   let progressTimer = null;
   let progressStart = 0;
   let currentPhase = "";
+
+  // Echte Rueckmeldungen der Python-API werden ueber eine eigene
+  // authentifizierte Edge-Function abgefragt. Ist sie noch nicht installiert,
+  // bleibt der bestehende indeterminierte Fortschritt erhalten.
+  let activeProgressId = null;
+  let progressPollTimer = null;
+  let progressPollBusy = false;
+  let progressPollingDisabled = false;
+  const serverPhases = Object.freeze({
+    received: "Anfrage auf dem Mac Studio empfangen",
+    planning: "Zutaten und Suchwuensche werden analysiert",
+    embedding: "Suchvektor wird erstellt",
+    searching: "Qdrant durchsucht die Rezeptdatenbank",
+    filtering: "Gefundene Rezepte werden geprueft",
+    found: "Rezeptsuche abgeschlossen",
+    generating: "Ollama formuliert die Antwort",
+    done: "Antwort fertiggestellt",
+    error: "Die Verarbeitung auf dem Mac Studio ist fehlgeschlagen"
+  });
+
+  async function pollRealProgress(id, token) {
+    if (!id || id !== activeProgressId || progressPollingDisabled || progressPollBusy) return;
+    progressPollBusy = true;
+    try {
+      const response = await fetch(PROGRESS_URL + "?id=" + encodeURIComponent(id), {
+        method: "GET",
+        cache: "no-store",
+        headers: {
+          "apikey": KI_PUBLIC_KEY,
+          "Authorization": "Bearer " + token
+        }
+      });
+      if (!response.ok) throw new Error("Fortschrittsdienst nicht erreichbar");
+      const data = await response.json();
+      if (!data || typeof data.phase !== "string" || !serverPhases[data.phase]) return;
+      if (id !== activeProgressId || !progressBox || progressBox.hidden) return;
+      currentPhase = "server-" + data.phase;
+      progressPhase.textContent = serverPhases[data.phase];
+      const count = Number(data.recipe_count);
+      progressDetail.textContent = data.phase === "found" && Number.isInteger(count) && count >= 0 && count <= 100
+        ? count + " passende Rezepte gefunden. Die Antwort wird vorbereitet."
+        : "Bestätigter Verarbeitungsschritt vom Mac Studio. Die Gesamtdauer ist noch nicht vorhersagbar.";
+      updateProgressTime();
+    } catch (err) {
+      // Ein nicht eingerichteter oder kurzzeitig ausgefallener Fortschrittskanal
+      // darf die eigentliche Rezeptsuche niemals beeintraechtigen.
+      progressPollingDisabled = true;
+      if (id === activeProgressId && currentPhase.startsWith("server-") === false) {
+        progressDetail.textContent = "Der Server sendet derzeit keine Detailmeldungen. Die Rezeptanfrage läuft unabhängig davon weiter.";
+      }
+    } finally {
+      progressPollBusy = false;
+    }
+  }
+
+  function startProgressPolling(id, token) {
+    stopProgressPolling();
+    activeProgressId = id;
+    progressPollingDisabled = false;
+    void pollRealProgress(id, token);
+    progressPollTimer = setInterval(() => { void pollRealProgress(id, token); }, 1600);
+  }
+
+  function stopProgressPolling() {
+    clearInterval(progressPollTimer);
+    progressPollTimer = null;
+    activeProgressId = null;
+    progressPollBusy = false;
+  }
+
 
   function updateProgressTime() {
     if (!progressBox || progressBox.hidden) return;
@@ -90,7 +163,18 @@
     if (error || !data.session) {
       throw new Error("Bitte melde dich erneut bei RezeptShare an.");
     }
+    const progressId = phaseChanged && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID() : null;
+    const requestMessages = nachrichten.map((message, i) => {
+      if (!progressId || i !== nachrichten.length - 1 || message.role !== "user") return message;
+      return {
+        ...message,
+        // Kennung nur fuer die Python-API, dort vor dem Suchen entfernt.
+        content: message.content + "\\n[REZEPT_PROGRESS_ID:" + progressId + "]"
+      };
+    });
     phaseChanged?.("waiting");
+    if (progressId) startProgressPolling(progressId, data.session.access_token);
     const response = await fetch(KI_URL, {
       method: "POST",
       headers: {
@@ -98,7 +182,7 @@
         "apikey": KI_PUBLIC_KEY,
         "Authorization": `Bearer ${data.session.access_token}`
       },
-      body: JSON.stringify({ messages: nachrichten })
+      body: JSON.stringify({ messages: requestMessages })
     });
     phaseChanged?.("received");
     const result = await response.json();
@@ -186,6 +270,7 @@
       status.textContent =
         err.message || "Die KI-Anfrage ist fehlgeschlagen.";
     } finally {
+      stopProgressPolling();
       stopProgress();
       setLoading(false);
     }
@@ -194,6 +279,7 @@
   newButton.addEventListener("click", () => {
     if (loading) return;
 
+    stopProgressPolling();
     stopProgress();
     messages = [];
     output.replaceChildren();
