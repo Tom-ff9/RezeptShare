@@ -9,6 +9,17 @@
   // NIEMALS den secret/service_role Key einsetzen.
   const KI_PUBLIC_KEY = "sb_publishable_-ql3ps2lnSnKtmJKeKK2Fg_EESrNR4j";
 
+  // Ausgabeformat: Auch englische Datenbanktitel bei jeder Rezeptantwort
+  // ins Deutsche uebersetzen. Quellen-URL und Originalrezept bleiben erhalten.
+  const KI_AUSGABE_REGELN = [
+    "Antworte ausnahmslos auf Deutsch, auch wenn die Rezeptquelle Englisch ist.",
+    "Uebersetze ALLE Rezepttitel sinngemaess ins Deutsche, auch in Markdown-Ueberschriften. Den Originaltitel kannst du in Klammern nennen.",
+    "Verwende fuer Gewichte Gramm oder Kilogramm und fuer Fluessigkeiten Milliliter oder Liter.",
+    "Rechne US-Masse um: 1 lb = 453,592 g, 1 oz Gewicht = 28,3495 g, 1 US fl oz = 29,5735 ml, 1 US gallon = 3,78541 l.",
+    "US cups und Tassen sind Volumen (ca. 240 ml). Ohne bekannte Dichte darf daraus keine Grammangabe berechnet werden.",
+    "Behalte Zutaten, Arbeitsschritte, Rezeptidentitaet und originale Quellen-URLs bei; erfinde keine Angaben."
+  ].join("\\n");
+
   const PROGRESS_URL =
     "https://pwrrqwojvjoyclfmebnl.supabase.co/functions/v1/ki-fortschritt";
 
@@ -185,12 +196,10 @@
       } catch (_) { /* Der Statusdienst ist optional. */ }
     }
     const requestMessages = nachrichten.map((message, i) => {
-      if (!progressId || i !== nachrichten.length - 1 || message.role !== "user") return message;
-      return {
-        ...message,
-        // Die Python-API entfernt diese Kennung vor Suchplanung und Modellaufruf.
-        content: message.content + "\n[REZEPT_PROGRESS_ID:" + progressId + "]"
-      };
+      if (i !== nachrichten.length - 1 || message.role !== "user") return message;
+      const localeInstruction = "\n\n[Antwortformat]\n" + KI_AUSGABE_REGELN;
+      const statusId = progressId ? "\n[REZEPT_PROGRESS_ID:" + progressId + "]" : "";
+      return { ...message, content: message.content + localeInstruction + statusId };
     });
     phaseChanged?.("waiting");
     if (progressId) startProgressPolling(progressId, data.session.access_token);
@@ -274,11 +283,12 @@
       // Erst nach Erfolg den Chatverlauf ergänzen.
       output.querySelector(".ki-begruessung")?.remove();
       showMessage("user", question);
-      showMessage("assistant", answer);
+      const germanAnswer = window.RezeptShareKIV2?.localizeAnswer(answer) || answer;
+      showMessage("assistant", germanAnswer);
 
       messages = [
         ...nextMessages,
-        { role: "assistant", content: answer }
+        { role: "assistant", content: germanAnswer }
       ].slice(-12);
 
       input.value = "";
