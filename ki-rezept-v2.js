@@ -157,6 +157,88 @@
     return card;
   }
 
+  function parseQuantity(original) {
+    const line = original.trim();
+    const match = line.match(/^(\d+(?:[.,]\d+)?|\d+\/\d+)\s*(kg|g|mg|ml|l|EL|TL|St(?:ue|ü)ck|cups?|tbsp|tsp|pcs?)?\s+(.+)$/i);
+    if (!match) return { name: line, quantity: null, unit: "", original: line };
+    let amount;
+    if (match[1].includes("/")) {
+      const [a, b] = match[1].split("/").map(Number);
+      amount = b ? a / b : NaN;
+    } else {
+      amount = Number(match[1].replace(",", "."));
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return { name: line, quantity: null, unit: "", original: line };
+    }
+    return {
+      name: match[3].trim(),
+      quantity: amount,
+      unit: match[2] || "",
+      original: line
+    };
+  }
+
+  // Direkte Erkennung ueblicher Chatantworten: keine weitere KI-Abfrage noetig.
+  // Wenn die Antwort keine vollstaendigen Rezepte enthaelt, wird kein
+  // vermeintlich vollstaendiges Rezept erzeugt.
+  function extractFromAnswer(answer) {
+    if (typeof answer !== "string" || !answer.trim()) return [];
+    const lines = answer.split(/\r?\n/);
+    const segments = [];
+    let current = [];
+    const heading = line => {
+      const clean = line.trim();
+      const h = clean.match(/^#{2,4}\s+(?:\d+[.)]\s*)?(.+)$/);
+      const bold = clean.match(/^\d+[.)]\s+\*\*([^*]+)\*\*$/);
+      const named = clean.match(/^\*\*(?:Rezept|Recipe)\s+\d+\s*:\s*([^*]+)\*\*$/i);
+      const title = (h?.[1] || bold?.[1] || named?.[1] || "").replace(/\*\*/g, "").trim();
+      return title && !/^(Zutaten|Ingredients|Zubereitung|Anleitung|Directions|Instructions|Quelle|Source)\b/i.test(title) ? title : null;
+    };
+    for (const line of lines) {
+      const title = heading(line);
+      if (title && current.length) {
+        segments.push(current);
+        current = [];
+      }
+      current.push(line);
+    }
+    if (current.length) segments.push(current);
+
+    const output = [];
+    for (const segment of segments) {
+      const cleaned = segment.map(line => line.trim());
+      const section = line => line.replace(/^#{1,5}\s*/, "").replace(/\*\*/g, "").replace(/:$/, "").trim().toLowerCase();
+      const ingredientIndex = cleaned.findIndex(line => /^(zutaten|ingredients)$/i.test(section(line)));
+      const directionIndex = cleaned.findIndex(line => /^(zubereitung|anleitung|directions|instructions|zubereitungsschritte)$/i.test(section(line)));
+      if (ingredientIndex < 0 || directionIndex <= ingredientIndex) continue;
+      let title = cleaned.slice(0, ingredientIndex).map(heading).filter(Boolean).pop();
+      if (!title) {
+        const candidates = cleaned.slice(0, ingredientIndex).filter(line => line && !/^(hier|gerne|ich|das|rezept|folgende|fuer|für)\b/i.test(line));
+        title = candidates.length ? candidates[candidates.length - 1].replace(/^[#*\d.)\s]+/, "").replace(/\*\*/g, "").slice(0, 120) : "";
+      }
+      const ingredientLines = cleaned.slice(ingredientIndex + 1, directionIndex)
+        .map(line => line.replace(/^[-*•]\s*/, "").replace(/^\d+[.)]\s*/, "").trim())
+        .filter(Boolean);
+      const instructionLines = cleaned.slice(directionIndex + 1)
+        .filter(line => line && !/^(Quelle|Source|Link|Bild|Image)\s*:/i.test(line))
+        .map(line => line.replace(/^\d+[.)]\s*/, "").replace(/^[-*•]\s*/, "").trim())
+        .filter(line => line.length > 5 && !/^https?:\/\//.test(line))
+        .slice(0, 40);
+      const portionMatch = cleaned.slice(0, directionIndex).join(" ").match(/(\d{1,3})\s*(?:portionen|portions|personen|servings)/i);
+      const urls = segment.join(" ").match(/https?:\/\/[^\s)\]]+/g) || [];
+      const parsed = normaliseRecipe({
+        title, base_portions: portionMatch ? Number(portionMatch[1]) : null,
+        ingredients: ingredientLines.map(parseQuantity),
+        steps: instructionLines,
+        source_url: urls[0] || ""
+      });
+      if (parsed) output.push(parsed);
+      if (output.length >= maxRecipes) break;
+    }
+    return output;
+  }
+
   function promptForRecipes(answer) {
     return `Extrahiere aus dem folgenden Text bis zu 5 TATSAECHLICH genannte Rezepte.
 Antworte ausschliesslich mit einem JSON-Objekt ohne Markdown oder Erklaerung.
@@ -188,10 +270,13 @@ ${answer.slice(0, 18000)}`;
       feedback.textContent = "Rezeptkarten werden vorbereitet ...";
       holder.replaceChildren();
       try {
-        const raw = await root.rezeptKIAnfrage(promptForRecipes(answer));
-        const data = readJson(raw);
-        const recipes = (Array.isArray(data.recipes) ? data.recipes : [])
-          .slice(0, maxRecipes).map(normaliseRecipe).filter(Boolean);
+        let recipes = extractFromAnswer(answer);
+        if (!recipes.length) {
+          const raw = await root.rezeptKIAnfrage(promptForRecipes(answer));
+          const data = readJson(raw);
+          recipes = (Array.isArray(data.recipes) ? data.recipes : [])
+            .slice(0, maxRecipes).map(normaliseRecipe).filter(Boolean);
+        }
         if (!recipes.length) {
           feedback.textContent = "Aus dieser Antwort konnte kein vollständiges Rezept erkannt werden. Bitte frage gezielt nach einem Rezept mit Zutaten und Anleitung.";
           return;
@@ -204,7 +289,7 @@ ${answer.slice(0, 18000)}`;
     });
   }
 
-  const api = { attach, normaliseRecipe, ingredientLine, recipeText, validPortions, readJson };
+  const api = { attach, normaliseRecipe, ingredientLine, recipeText, validPortions, readJson, extractFromAnswer, parseQuantity };
   root.RezeptShareKIV2 = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);
