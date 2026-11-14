@@ -110,7 +110,7 @@ assert.equal(extractFromAnswer(longSteps)[0].steps.length, 3);
 assert.equal(metricIngredients("1 lb Pilze"), "454 g Pilze");
 assert.equal(metricIngredients("4 Unzen weiche Frischkäse"), "113 g weiche Frischkäse");
 assert.equal(metricIngredients("1/2 Tasse Schlagsahne"), "120 ml Schlagsahne");
-assert.equal(metricIngredients("2 fl oz Sahne"), "59,15 ml Sahne");
+assert.equal(metricIngredients("2 fl oz Sahne"), "59,1 ml Sahne");
 assert.equal(metricIngredients("1 gallon Brühe"), "3,79 l Brühe");
 assert.equal(metricIngredients("1 cup Mehl"), "240 ml Mehl"); // Volumen, nicht Gramm
 assert.equal(metricIngredients("100 g Pilze"), "100 g Pilze");
