@@ -757,6 +757,37 @@ async function bildEntfernen(bildPfad) {
     );
 }
 
+// KI-Rezeptvorschau nutzt ausschliesslich das bestehende Formular und dessen
+// Rechtepruefung. Ein Datenbankeintrag wird erst durch "Rezept hinzufuegen" erstellt.
+window.rezeptShareKIRezeptUebernehmen = async function (entwurf) {
+    if (!aktiverBenutzer || !darfRezeptHinzufuegen()) {
+        throw new Error("Du brauchst eine beschreibbare Rezeptgruppe.");
+    }
+    if (!entwurf || typeof entwurf.name !== "string" || typeof entwurf.text !== "string") {
+        throw new Error("Unvollstaendiger Rezeptentwurf.");
+    }
+    const name = entwurf.name.trim(), text = entwurf.text.trim();
+    if (!name || name.length > 120 || !text || text.length > 20000) {
+        throw new Error("Der Rezeptentwurf ist leer oder zu lang.");
+    }
+    const ok = await ansichtSicherWechseln("hinzufuegen");
+    if (!ok) return false;
+    formularZuruecksetzen();
+    // Auch fuer Benutzer ohne Schreibrecht in der gewaehlten Gruppe eine
+    // erlaubte Zielgruppe verwenden. Die bestehende Speicherung prueft erneut.
+    if (!formularGruppenIds.length || formularGruppenIds.some(id => !darfRezepteBearbeiten(id))) {
+        formularGruppenIds = standardFormularGruppen();
+    }
+    rezeptNameEingabe.value = name;
+    rezeptTextEingabe.value = text;
+    formularGeaendert = true;
+    formularAuftrag = null;
+    gruppenAuswahlAktualisieren();
+    rezeptMeldung.textContent = "KI-Entwurf: Bitte Zutaten, Portionen, Quelle und Zielgruppen pruefen. Erst mit „Rezept hinzufuegen“ wird gespeichert.";
+    rezeptNameEingabe.focus();
+    return true;
+};
+
 async function rezeptSpeichern() {
     if (bearbeitetesRezeptId ? !darfRezepteBearbeiten() : !formularGruppenIds.length || formularGruppenIds.some(id => !darfRezepteBearbeiten(id))) throw new Error("Bitte wähle beschreibbare Zielgruppen.");
     const removed = bearbeiteteGruppenKopien.filter(r => !formularGruppenIds.includes(Number(r.gruppen_id)));
