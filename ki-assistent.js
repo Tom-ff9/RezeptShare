@@ -21,6 +21,41 @@
   let messages = [];
   let loading = false;
 
+  async function kiAnfrage(nachrichten) {
+    if (KI_PUBLIC_KEY === "HIER_PUBLISHABLE_KEY_EINTRAGEN") {
+      throw new Error("Der KI-Publishable-Key fehlt.");
+    }
+    if (!supabaseClient) throw new Error("Bitte melde dich bei RezeptShare an.");
+    const { data, error } = await supabaseClient.auth.getSession();
+    if (error || !data.session) {
+      throw new Error("Bitte melde dich erneut bei RezeptShare an.");
+    }
+    const response = await fetch(KI_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": KI_PUBLIC_KEY,
+        "Authorization": `Bearer ${data.session.access_token}`
+      },
+      body: JSON.stringify({ messages: nachrichten })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+    if (typeof result.answer !== "string" || !result.answer.trim()) {
+      throw new Error("Keine gueltige KI-Antwort.");
+    }
+    return result.answer;
+  }
+
+  // Rezeptkarten erhalten eine eigenstaendige Anfrage ohne Chatverlauf.
+  // Dadurch bleibt der normale Chatverlauf unveraendert.
+  window.rezeptKIAnfrage = async function (frage) {
+    if (loading) throw new Error("Bitte warte, bis die vorherige Anfrage abgeschlossen ist.");
+    return kiAnfrage([{ role: "user", content: frage }]);
+  };
+
+
+
   function showMessage(role, content) {
     const message = document.createElement("div");
     message.className = "ki-nachricht " +
@@ -38,6 +73,9 @@
 
     message.append(title, body);
     output.append(message);
+    if (role === "assistant" && window.RezeptShareKIV2) {
+      window.RezeptShareKIV2.attach(message, content);
+    }
     output.scrollTop = output.scrollHeight;
   }
 
@@ -59,62 +97,21 @@
     status.textContent = "Der Assistent sucht ...";
 
     try {
-      if (KI_PUBLIC_KEY ===
-          "HIER_PUBLISHABLE_KEY_EINTRAGEN") {
-        throw new Error(
-          "Der KI-Publishable-Key fehlt."
-        );
-      }
-
-      // Bestehende RezeptShare-Anmeldung aus Projekt A.
-      const { data, error } =
-        await supabaseClient.auth.getSession();
-
-      if (error || !data.session) {
-        throw new Error(
-          "Bitte melde dich erneut bei RezeptShare an."
-        );
-      }
-
       const nextMessages = [
         ...messages,
         { role: "user", content: question }
       ].slice(-12);
 
-      const response = await fetch(KI_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": KI_PUBLIC_KEY,
-          "Authorization":
-            `Bearer ${data.session.access_token}`
-        },
-        body: JSON.stringify({
-          messages: nextMessages
-        })
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          result.error || `HTTP ${response.status}`
-        );
-      }
-
-      if (typeof result.answer !== "string" ||
-          !result.answer.trim()) {
-        throw new Error("Keine gültige KI-Antwort.");
-      }
+      const answer = await kiAnfrage(nextMessages);
 
       // Erst nach Erfolg den Chatverlauf ergänzen.
       output.querySelector(".ki-begruessung")?.remove();
       showMessage("user", question);
-      showMessage("assistant", result.answer);
+      showMessage("assistant", answer);
 
       messages = [
         ...nextMessages,
-        { role: "assistant", content: result.answer }
+        { role: "assistant", content: answer }
       ].slice(-12);
 
       input.value = "";
