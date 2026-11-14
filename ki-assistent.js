@@ -15,13 +15,73 @@
   const status = document.querySelector("#ki-status");
   const sendButton = document.querySelector("#ki-senden");
   const newButton = document.querySelector("#ki-neuer-chat");
+  const progressBox = document.querySelector("#ki-fortschritt");
+  const progressPhase = document.querySelector("#ki-fortschritt-phase");
+  const progressTime = document.querySelector("#ki-fortschritt-zeit");
+  const progressDetail = document.querySelector("#ki-fortschritt-detail");
+
 
   if (!form || !input || !output) return;
 
   let messages = [];
   let loading = false;
 
-  async function kiAnfrage(nachrichten) {
+  // Der Server meldet derzeit keine Zwischenschritte oder Prozentwerte.
+  // Daher zeigen wir nur echte Frontend-Etappen und die vergangene Zeit.
+  let progressTimer = null;
+  let progressStart = 0;
+  let currentPhase = "";
+
+  function updateProgressTime() {
+    if (!progressBox || progressBox.hidden) return;
+    const seconds = Math.max(0, Math.floor((Date.now() - progressStart) / 1000));
+    progressTime.textContent = seconds + " s";
+    if (currentPhase === "waiting") {
+      progressDetail.textContent = seconds >= 30
+        ? "Die Antwort dauert länger als gewöhnlich. Die Anfrage läuft noch; vom KI-Server werden keine einzelnen Arbeitsschritte übertragen."
+        : seconds >= 12
+          ? "Die Anfrage wurde gesendet. Wir warten auf die KI-Antwort; der genaue Fortschritt ist nicht messbar."
+          : "Die Anfrage wurde gesendet. Der genaue Bearbeitungsstand auf dem KI-Server ist nicht verfügbar.";
+    }
+  }
+
+  function progressStage(stage) {
+    if (!progressBox) return;
+    currentPhase = stage;
+    const phases = {
+      auth: "Anmeldung wird geprüft",
+      waiting: "Anfrage gesendet – Antwort ausstehend",
+      received: "Antwort empfangen",
+      display: "Antwort wird angezeigt"
+    };
+    progressPhase.textContent = phases[stage] || "Anfrage läuft";
+    if (stage !== "waiting") {
+      progressDetail.textContent = {
+        auth: "RezeptShare prüft die bestehende Anmeldung.",
+        received: "Die Antwort ist eingetroffen und wird verarbeitet.",
+        display: "Die Antwort wird im Chat dargestellt."
+      }[stage] || "";
+    }
+    updateProgressTime();
+  }
+
+  function startProgress() {
+    if (!progressBox) return;
+    clearInterval(progressTimer);
+    progressStart = Date.now();
+    progressBox.hidden = false;
+    progressStage("auth");
+    progressTimer = setInterval(updateProgressTime, 1000);
+  }
+
+  function stopProgress() {
+    clearInterval(progressTimer);
+    progressTimer = null;
+    if (progressBox) progressBox.hidden = true;
+  }
+
+
+  async function kiAnfrage(nachrichten, phaseChanged = null) {
     if (KI_PUBLIC_KEY === "HIER_PUBLISHABLE_KEY_EINTRAGEN") {
       throw new Error("Der KI-Publishable-Key fehlt.");
     }
@@ -30,6 +90,7 @@
     if (error || !data.session) {
       throw new Error("Bitte melde dich erneut bei RezeptShare an.");
     }
+    phaseChanged?.("waiting");
     const response = await fetch(KI_URL, {
       method: "POST",
       headers: {
@@ -39,6 +100,7 @@
       },
       body: JSON.stringify({ messages: nachrichten })
     });
+    phaseChanged?.("received");
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
     if (typeof result.answer !== "string" || !result.answer.trim()) {
@@ -94,7 +156,8 @@
     if (!question) return;
 
     setLoading(true);
-    status.textContent = "Der Assistent sucht ...";
+    status.textContent = "";
+    startProgress();
 
     try {
       const nextMessages = [
@@ -102,7 +165,8 @@
         { role: "user", content: question }
       ].slice(-12);
 
-      const answer = await kiAnfrage(nextMessages);
+      const answer = await kiAnfrage(nextMessages, progressStage);
+      progressStage("display");
 
       // Erst nach Erfolg den Chatverlauf ergänzen.
       output.querySelector(".ki-begruessung")?.remove();
@@ -122,6 +186,7 @@
       status.textContent =
         err.message || "Die KI-Anfrage ist fehlgeschlagen.";
     } finally {
+      stopProgress();
       setLoading(false);
     }
   });
@@ -129,6 +194,7 @@
   newButton.addEventListener("click", () => {
     if (loading) return;
 
+    stopProgress();
     messages = [];
     output.replaceChildren();
     input.value = "";
