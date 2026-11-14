@@ -87,7 +87,7 @@ assert.equal(fromSource[0].steps.length, 2);
 assert.equal(fromSource[0].ingredients[2].quantity, 0.25);
 assert.equal(fromSource[1].ingredients[1].quantity, 120);
 assert.equal(fromSource[1].ingredients[1].unit, "ml");
-assert.equal(ingredientLine(fromSource[0].ingredients[0], null, null), "2 Tassen Wasser");
+assert.equal(ingredientLine(fromSource[0].ingredients[0], null, null), "480 ml Wasser");
 assert(recipeText(fromSource[0], null, null).includes("Portionen: nicht angegeben"));
 
 
