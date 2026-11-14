@@ -51,4 +51,42 @@ assert.equal(extractFromAnswer(message.replace("Portionen: 4", "Portionen unbeka
 assert.equal(parsed[0].steps.length, 2);
 assert.equal(extractFromAnswer("Keine passenden Rezepte gefunden.").length, 0);
 
+
+const sourceAnswer = [
+  "Hier sind glutenfreie Rezepte mit Reis aus der Datenbank:",
+  "---",
+  "### **1. Gluten Free Rice Chicken Stuffing**",
+  "**Source:** [Originalrezept](https://www.allrecipes.com/recipe/230118/gluten-free-rice-chicken-stuffing/)",
+  "**Zutaten:**",
+  "- 2 Tassen Wasser",
+  "- 4 Teelöffel glutenfreie Hähnchenbrühe (Granulat)",
+  "- 1/4 Teelöffel Salz",
+  "**Kochanleitung:**",
+  "1. Wasser und Zutaten in eine Schüssel geben.",
+  "2. Reis unterrühren, abdecken und ruhen lassen.",
+  "---",
+  "### **2. Gluten-free Chicken Fried Brown Rice**",
+  "**Source:** [Originalrezept](https://tastykitchen.com/recipes/special-dietary-needs/gluten-free/gluten-free-chicken-fried-brown-rice/)",
+  "**Zutaten:**",
+  "- 3 Esslöffel Olivenöl",
+  "- 1/2 Tasse gehackte rote Zwiebel",
+  "- 2 Eier",
+  "**Kochanleitung:**",
+  "1. Olivenöl in einer Pfanne erhitzen.",
+  "2. Eier einrühren und fertig garen.",
+  "---",
+  "**Hinweis zu Allergenen:** Manche Zutaten müssen geprüft werden."
+].join("\n");
+const fromSource = extractFromAnswer(sourceAnswer);
+assert.equal(fromSource.length, 2);
+assert.equal(fromSource[0].title, "Gluten Free Rice Chicken Stuffing");
+assert.equal(fromSource[1].title, "Gluten-free Chicken Fried Brown Rice");
+assert.equal(fromSource[0].sourceUrl, "https://www.allrecipes.com/recipe/230118/gluten-free-rice-chicken-stuffing/");
+assert.equal(fromSource[0].basePortions, null);
+assert.equal(fromSource[0].steps.length, 2);
+assert.equal(fromSource[0].ingredients[2].quantity, 0.25);
+assert.equal(fromSource[1].ingredients[1].quantity, 0.5);
+assert.equal(ingredientLine(fromSource[0].ingredients[0], null, null), "2 Tassen Wasser");
+assert(recipeText(fromSource[0], null, null).includes("Portionen: nicht angegeben"));
+
 console.log("KI-Rezept-V2-Tests erfolgreich.");
