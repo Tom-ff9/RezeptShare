@@ -160,6 +160,16 @@
                     <textarea id="ki-eingabe" rows="3" maxlength="4000" placeholder="Welche Rezepte mit Kartoffeln und Feta kennst du?" required></textarea>
                     <button id="ki-senden" class="primaer-button" type="submit">Frage senden</button>
                 </form>
+                <div id="ki-fortschritt" class="ki-fortschritt" aria-label="Bearbeitung der KI-Anfrage" hidden>
+                    <div class="ki-fortschritt-kopf">
+                        <span id="ki-fortschritt-phase">Anfrage wird vorbereitet</span>
+                        <span id="ki-fortschritt-zeit" aria-label="Vergangene Zeit">0 s</span>
+                    </div>
+                    <div class="ki-fortschritt-spur" role="progressbar" aria-label="KI-Anfrage läuft, Fortschritt nicht messbar">
+                        <span class="ki-fortschritt-balken"></span>
+                    </div>
+                    <p id="ki-fortschritt-detail" class="ki-fortschritt-detail">Der Assistent verarbeitet deine Anfrage. Der genaue Fortschritt ist noch nicht verfügbar.</p>
+                </div>
                 <p id="ki-status" role="status" aria-live="polite"></p>
             </section>
         </div>
