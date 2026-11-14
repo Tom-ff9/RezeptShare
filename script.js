@@ -180,6 +180,7 @@ let bearbeitetesRezeptId = null;
 let bearbeiteteVersion = null;
 let ausgewaehltesRezept = null;
 let vorhandenerBildPfad = null;
+let importBildDatei = null;
 let aktiveAnsicht = "rezepte";
 let formularGeaendert = false;
 let bestaetigungAufloesen = null;
@@ -268,6 +269,7 @@ function bestaetigungBeenden(ergebnis) {
 }
 
 function anmeldeAnsichtAnzeigen() {
+    window.rezeptImport?.loeschen();
     landingBereich.hidden = false;
     appBereich.hidden = true;
     hauptnavigation.hidden = true;
@@ -665,6 +667,7 @@ async function rezeptDetailsAnzeigen(rezept) {
 
 function formularZuruecksetzen() {
     rezeptFormular.reset();
+    importBildDatei = null;
     bearbeitetesRezeptId = null;
     bearbeiteteVersion = null;
     vorhandenerBildPfad = null;
@@ -682,6 +685,8 @@ function formularZuruecksetzen() {
 
 function rezeptBearbeiten(rezept) {
     if (!darfRezepteBearbeiten(rezept.gruppenId)) return;
+    importBildDatei = null;
+    rezeptBildEingabe.value = '';
     aktiveGruppenId = rezept.gruppenId;
     localStorage.setItem("aktiveGruppenId", aktiveGruppenId);
     bearbeitetesRezeptId = rezept.id;
@@ -761,7 +766,7 @@ async function rezeptSpeichern() {
     const removed = bearbeiteteGruppenKopien.filter(r => !formularGruppenIds.includes(Number(r.gruppen_id)));
     if (removed.length && !await bestaetigungFragen("Gruppenkopien löschen?", "Die Kopien in folgenden Gruppen werden gelöscht: " + removed.map(r => gruppen.find(g => g.id === Number(r.gruppen_id))?.name).join(', ') + (!formularGruppenIds.length ? ". Du entfernst die letzte für dich sichtbare Kopie." : ". Andere Kopien bleiben erhalten."), "Kopien löschen", true)) return;
     const rezeptDaten = rezeptDatenAusFormular();
-    const neuesBild = rezeptBildEingabe.files[0] || null;
+    const neuesBild = rezeptBildEingabe.files[0] || importBildDatei || null;
     let neuerBildPfad = vorhandenerBildPfad;
     let neuesBildWurdeHochgeladen = false;
 

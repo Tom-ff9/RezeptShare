@@ -29,6 +29,7 @@
     <script src="gruppen.js" defer></script>
     <script src="rezeptgruppen.js" defer></script>
     <script src="script.js" defer></script>
+    <script src="kochbuch-import.js" type="module"></script>
 </head>
 <body>
     <header class="seitenkopf">
@@ -107,6 +108,7 @@
 
             <section id="hinzufuegen-ansicht" class="karte app-ansicht" aria-labelledby="formular-ueberschrift" hidden>
                 <h2 id="formular-ueberschrift" class="nur-screenreader">Rezept hinzufügen</h2>
+                <button id="kochbuch-import-oeffnen" class="sekundaer-button" type="button">Rezept aus Kochbuch importieren</button>
                 <form id="rezept-formular">
                     <label for="rezept-name">Rezeptname</label>
                     <input id="rezept-name" type="text" maxlength="120" required>
@@ -149,6 +151,28 @@
             </section>
         </div>
     </main>
+
+    <dialog id="kochbuch-import-dialog" class="dialog import-dialog" aria-labelledby="import-titel">
+        <button id="import-schliessen" class="dialog-schliessen" type="button" aria-label="Import schließen">×</button>
+        <h2 id="import-titel">Kochbuch und Handschrift importieren</h2>
+        <p>Bis zu 6 Fotos in Seitenreihenfolge, auch mit mehreren Rezepten. Prüfe alle Mengen und handschriftlichen Änderungen. Die KI kann sich irren.</p>
+        <p>Die komprimierten Bilder werden zur Erkennung über Supabase an OpenAI übertragen. Die App speichert die Seiten nicht dauerhaft. Beim KI-Dienst können nach dessen Datenschutzregeln zeitlich begrenzte Sicherheitsprotokolle anfallen.</p>
+        <p>Buchfotos und Rezepttexte können urheberrechtlich geschützt sein. Verwende nur Inhalte, die du verarbeiten darfst, und prüfe deine Rechte vor dem Teilen in Gruppen oder über öffentliche Links.</p>
+        <label class="checkbox-zeile"><input id="import-einwilligung" type="checkbox"> Ich stimme der Bildverarbeitung durch OpenAI zu.</label>
+        <label for="import-dateien">Seiten auswählen (JPEG, PNG, WebP; je maximal 20 MB)</label>
+        <input id="import-dateien" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+        <label for="import-kamera">Weitere Seite fotografieren</label>
+        <input id="import-kamera" type="file" accept="image/*" capture="environment">
+        <small>Auswahl und Kamera fügen Seiten hinzu. Vor Übertragung: maximal 2304 Pixel, 1 MB pro Bild und insgesamt 5 MB. HEIC bitte als JPEG exportieren.</small>
+        <ol id="import-seiten" class="import-seiten"></ol>
+        <div class="dialog-aktionen">
+            <button id="import-erkennen" type="button">Rezepte erkennen</button>
+            <button id="import-verwerfen" class="sekundaer-button" type="button">Importdaten löschen</button>
+            <button id="import-exportieren" class="sekundaer-button" type="button" hidden>Ergebnis als JSON sichern</button>
+        </div>
+        <p id="import-status" role="status" aria-live="polite"></p>
+        <div id="import-ergebnisse"></div>
+    </dialog>
 
     <dialog id="auth-dialog" class="dialog auth-dialog" aria-labelledby="auth-titel">
         <button id="auth-schliessen" class="dialog-schliessen" type="button" aria-label="Schließen">×</button>

@@ -472,3 +472,24 @@ body:has(#rezept-detail-dialog[open]) { overflow: hidden; }
 }
 
 #rezept-aktions-meldung, #rezept-link-ausgabe { max-width: 720px; margin-inline: auto; }
+
+/* Lokale Importvorschau: auch auf schmalen Kameradisplays bedienbar. */
+#kochbuch-import-oeffnen { margin-bottom: 22px; }
+.import-dialog { width: min(900px, calc(100% - 24px)); }
+.import-dialog h2 { padding-right: 38px; }
+.import-dialog details { margin-block: 14px; padding: 10px; border: 1px solid var(--linie); border-radius: 8px; }
+.import-dialog summary { cursor: pointer; padding-block: 7px; }
+.import-dialog select { width: 100%; min-height: 44px; }
+.import-dialog button { min-height: 44px; margin: 4px; white-space: normal; }
+.import-rezept { border-top: 2px solid var(--linie); padding-block: 22px; overflow-wrap: anywhere; }
+.import-seiten { display: flex; flex-wrap: wrap; gap: 18px; padding-left: 22px; }
+.import-seiten li { width: 130px; }
+.import-seiten img { display: block; width: 120px; height: 140px; object-fit: contain; }
+.import-seiten span { display: block; }
+.import-quellbild, .import-ausschnitt { display: block; max-width: 100%; max-height: 420px; object-fit: contain; margin-block: 12px; }
+#import-status { white-space: pre-wrap; }
+.import-dialog textarea { width: 100%; }
+@media (max-width: 600px) {
+    .import-dialog { max-height: calc(100dvh - 16px); }
+    .import-dialog .dialog-aktionen { flex-direction: column; align-items: stretch; }
+}

@@ -51,6 +51,7 @@ Anschließend [localhost:3000](http://127.0.0.1:3000) öffnen. Die Backend-Verbi
 - Gruppenrollen: Admin, Mitglied und Beobachter mit abgestuften Rechten.
 - Markierte Änderungen anderer Personen, individuell ausblendbar und nach einem Monat entfernt.
 - Profile mit Anzeigename und Foto sowie Konto- und Gruppenverwaltung.
+- KI-Import von Kochbuchseiten und Handschrift mit prüfbaren Fassungen und Bildausschnitten; Einrichtung und Grenzen in [README-IMPORT.md](README-IMPORT.md).
 
 ---
 

@@ -12,3 +12,7 @@ verify_jwt = false
 [functions.rezept-gruppen]
 verify_jwt = false
 # Nur ansehen ist öffentlich; alle anderen Aktionen prüfen auth.getUser().
+
+[functions.rezept-importieren]
+verify_jwt = false
+# Wie die anderen Funktionen: serverseitig auth.getUser(), kein anonymer Import.
