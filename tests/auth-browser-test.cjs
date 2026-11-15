@@ -25,6 +25,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
                 captchaInitialisieren();`});
             return route.abort();
         });
+        await page.route('**/konfiguration.js', route => route.fulfill({contentType:'application/javascript',body: `window.REZEPT_SHARE_KONFIGURATION={supabaseUrl:'https://isoliert.invalid',supabasePublishableKey:'mock-public'};`}));
         await page.goto(process.env.TEST_URL || 'http://127.0.0.1:3000');
         await page.getByRole('button',{name:'Anmelden',exact:true}).click();
         await page.locator('#anmelde-email').fill('test@example.test');

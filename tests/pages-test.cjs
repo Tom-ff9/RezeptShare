@@ -6,11 +6,13 @@ const root = path.resolve(__dirname, '..');
 execFileSync(process.execPath, [path.join(root, 'scripts/build-pages.cjs')]);
 const dist = path.join(root, 'dist');
 const files = fs.readdirSync(dist, { recursive: true }).filter(file => fs.statSync(path.join(dist, file)).isFile()).sort();
-assert.deepEqual(files, ['.nojekyll','assets/profil-standard.svg','manifest.webmanifest','assets/icons/favicon-32.png','assets/icons/apple-touch-icon.png','assets/icons/icon-192.png','assets/icons/icon-512.png','captcha.js','funktionen.js','gruppen.js','rezeptgruppen.js','index.html', 'ki-assistent.js', 'ki-rezept-v2.js', 'konfiguration.js','script.js','style.css'].sort());
+assert.deepEqual(files, ['.nojekyll','assets/profil-standard.svg','manifest.webmanifest','assets/icons/favicon-32.png','assets/icons/apple-touch-icon.png','assets/icons/icon-192.png','assets/icons/icon-512.png','captcha.js','funktionen.js','gruppen.js','rezeptgruppen.js','index.html', 'ki-assistent.js', 'ki-rezept-v2.js', 'kochbuch-import.js', 'import-format.mjs', 'konfiguration.js','script.js','style.css'].sort());
 const html = fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
+assert.equal(fs.readFileSync(path.join(dist,'import-format.mjs'),'utf8'),fs.readFileSync(path.join(root,'supabase/functions/_shared/import-format.mjs'),'utf8'));
+assert.match(fs.readFileSync(path.join(dist,'kochbuch-import.js'),'utf8'), /from '\.\/import-format\.mjs'/);
 for (const [, ref] of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
     if (ref.startsWith('https:') || ref === './') continue;
-    const url = new URL(ref, 'https://Tom-ff9.github.io/RezeptShare/');
+    const url = new URL(ref, 'https://nordlicht78.github.io/RezeptShare/');
     assert(url.pathname.startsWith('/RezeptShare/'));
     assert(fs.existsSync(path.join(dist, url.pathname.slice('/RezeptShare/'.length))), ref);
 }

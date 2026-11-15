@@ -12,3 +12,11 @@ verify_jwt = false
 [functions.rezept-gruppen]
 verify_jwt = false
 # Nur ansehen ist öffentlich; alle anderen Aktionen prüfen auth.getUser().
+
+[functions.rezept-importieren]
+verify_jwt = false
+# Wie die anderen Funktionen: serverseitig auth.getUser(), kein anonymer Import.
+
+[functions.ki-fortschritt]
+verify_jwt = false
+# Prüft die Sitzung im eigenen Testprojekt über den gemeinsamen Client.

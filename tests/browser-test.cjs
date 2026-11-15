@@ -52,7 +52,8 @@ function mockInstall() {
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.route('https://**/*',route=>route.request().url().includes('cdn.jsdelivr.net')
         ? route.fulfill({contentType:'application/javascript',body:`(${mockInstall.toString()})();`}) : route.abort());
-    await page.goto(process.env.TEST_URL || 'http://127.0.0.1:3188');
+    await page.route('**/konfiguration.js', route => route.fulfill({contentType:'application/javascript',body: `window.REZEPT_SHARE_KONFIGURATION={supabaseUrl:'https://isoliert.invalid',supabasePublishableKey:'mock-public'};`}));
+        await page.goto(process.env.TEST_URL || 'http://127.0.0.1:3188');
     await page.getByRole('button',{name:'später festlegen'}).click();
     await page.locator('#app-bereich').waitFor({state:'visible'});
     assert.equal(await page.evaluate(()=>mockState.profile.profilbild_festgelegt),true);

@@ -2,12 +2,9 @@
 "use strict";
 
 (() => {
-  const KI_URL =
-    "https://pwrrqwojvjoyclfmebnl.supabase.co/functions/v1/ki-assistent";
-
-  // Öffentlicher Publishable Key von Supabase-Projekt B.
-  // NIEMALS den secret/service_role Key einsetzen.
-  const KI_PUBLIC_KEY = "sb_publishable_-ql3ps2lnSnKtmJKeKK2Fg_EESrNR4j";
+  const config = window.REZEPT_SHARE_KONFIGURATION || {};
+  const KI_URL = config.kiUrl || '';
+  const KI_PUBLIC_KEY = config.kiPublishableKey || config.supabasePublishableKey || '';
 
   // Ausgabeformat: Auch englische Datenbanktitel bei jeder Rezeptantwort
   // ins Deutsche uebersetzen. Quellen-URL und Originalrezept bleiben erhalten.
@@ -20,8 +17,7 @@
     "Behalte Zutaten, Arbeitsschritte, Rezeptidentitaet und originale Quellen-URLs bei; erfinde keine Angaben."
   ].join("\n");
 
-  const PROGRESS_URL =
-    "https://pwrrqwojvjoyclfmebnl.supabase.co/functions/v1/ki-fortschritt";
+  const PROGRESS_URL = config.kiProgressUrl || '';
 
   const form = document.querySelector("#ki-formular");
   const input = document.querySelector("#ki-eingabe");
@@ -39,6 +35,8 @@
 
   let messages = [];
   let loading = false;
+  let chatGeneration = 0;
+  let requestController = null;
 
   // Der Server meldet derzeit keine Zwischenschritte oder Prozentwerte.
   // Daher zeigen wir nur echte Frontend-Etappen und die vergangene Zeit.
@@ -168,17 +166,21 @@
 
 
   async function kiAnfrage(nachrichten, phaseChanged = null) {
-    if (KI_PUBLIC_KEY === "HIER_PUBLISHABLE_KEY_EINTRAGEN") {
-      throw new Error("Der KI-Publishable-Key fehlt.");
+    if (!KI_URL || !KI_PUBLIC_KEY) {
+      throw new Error("Der KI-Assistent ist für das separate Testprojekt noch nicht eingerichtet.");
     }
     if (!supabaseClient) throw new Error("Bitte melde dich bei RezeptShare an.");
+    const generation = chatGeneration;
     const { data, error } = await supabaseClient.auth.getSession();
+    if (generation !== chatGeneration) throw new Error('Anfrage abgebrochen.');
     if (error || !data.session) {
       throw new Error("Bitte melde dich erneut bei RezeptShare an.");
     }
+    requestController = new AbortController();
+    const signal = requestController.signal;
     // Statuskanal einmal pruefen, bevor die optionale Kennung gesendet wird.
     // Ohne installierten Rueckkanal bleibt die bisherige KI-Anfrage unveraendert.
-    const candidateId = phaseChanged && typeof crypto.randomUUID === "function"
+    const candidateId = PROGRESS_URL && phaseChanged && typeof crypto.randomUUID === "function"
       ? crypto.randomUUID() : null;
     let progressId = null;
     if (candidateId) {
@@ -190,7 +192,7 @@
             "apikey": KI_PUBLIC_KEY,
             "Authorization": "Bearer " + data.session.access_token
           },
-          signal: AbortSignal.timeout(2000)
+          signal: AbortSignal.any([signal, AbortSignal.timeout(2000)])
         });
         if (check.ok && (await check.json())?.phase === "waiting") progressId = candidateId;
       } catch (_) { /* Der Statusdienst ist optional. */ }
@@ -201,10 +203,12 @@
       const statusId = progressId ? "\n[REZEPT_PROGRESS_ID:" + progressId + "]" : "";
       return { ...message, content: message.content + localeInstruction + statusId };
     });
+    if (generation !== chatGeneration) throw new Error('Anfrage abgebrochen.');
     phaseChanged?.("waiting");
     if (progressId) startProgressPolling(progressId, data.session.access_token);
     const response = await fetch(KI_URL, {
       method: "POST",
+      signal,
       headers: {
         "Content-Type": "application/json",
         "apikey": KI_PUBLIC_KEY,
@@ -214,6 +218,7 @@
     });
     phaseChanged?.("received");
     const result = await response.json();
+    if (generation !== chatGeneration) throw new Error('Anfrage abgebrochen.');
     if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
     if (typeof result.answer !== "string" || !result.answer.trim()) {
       throw new Error("Keine gueltige KI-Antwort.");
@@ -270,6 +275,7 @@
     setLoading(true);
     status.textContent = "";
     startProgress();
+    const generation = chatGeneration;
 
     try {
       const nextMessages = [
@@ -295,13 +301,16 @@
       status.textContent = "";
 
     } catch (err) {
+      if (generation !== chatGeneration) return;
       console.error("KI-Fehler:", err);
       status.textContent =
         err.message || "Die KI-Anfrage ist fehlgeschlagen.";
     } finally {
-      stopProgressPolling();
-      stopProgress();
-      setLoading(false);
+      if (generation === chatGeneration) {
+        stopProgressPolling();
+        stopProgress();
+        setLoading(false);
+      }
     }
   });
 
@@ -323,6 +332,16 @@
     output.append(greeting);
     input.focus();
   });
+  window.rezeptAssistentZuruecksetzen = () => {
+    chatGeneration++;
+    requestController?.abort();
+    requestController = null;
+    stopProgressPolling(); stopProgress(); setLoading(false);
+    messages = []; output.replaceChildren(); input.value = ''; status.textContent = '';
+    const greeting = document.createElement('p'); greeting.className = 'ki-begruessung';
+    greeting.textContent = 'Hallo! Frage mich nach Rezepten, Zutaten oder Kochideen.';
+    output.append(greeting);
+  };
 })();
 
 

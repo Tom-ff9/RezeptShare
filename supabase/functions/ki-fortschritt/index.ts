@@ -1,17 +1,16 @@
-// Supabase-Projekt B: Nur der getrennte Status-Endpunkt der Mac-Studio-API.
+// Separates Testprojekt: optionaler Status-Endpunkt der Mac-Studio-Test-API.
 // Keine Rezepte, Tokens oder Nutzerdaten werden im Status gespeichert.
-// deploy: supabase functions deploy ki-fortschritt --project-ref pwrrqwojvjoyclfmebnl --no-verify-jwt
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { clients } from '../_shared/http.ts';
 
-const ORIGINAL_SUPABASE_URL = "https://gcncxupedhwieybpiupi.supabase.co";
-const ORIGINAL_SUPABASE_PUBLIC_KEY = "sb_publishable_ctCstHgTk6xNKjeXoly1CA_Vhzr99KJ";
-const PROGRESS_UPSTREAM = "https://kronshagen.hopto.org:57001/recipe-progress/";
+const PROGRESS_UPSTREAM = Deno.env.get('KI_PROGRESS_UPSTREAM') || '';
 const allowedOrigins = new Set([
   "http://localhost:3001",
   "http://127.0.0.1:3001",
   "http://localhost:3000",
-  "https://nordlicht78.github.io",
-  "https://tom-ff9.github.io"
+  "http://127.0.0.1:3000",
+  "http://localhost:3188",
+  "http://127.0.0.1:3188",
+  "https://nordlicht78.github.io"
 ]);
 
 function cors(origin: string | null): Record<string, string> {
@@ -48,13 +47,14 @@ Deno.serve(async (request: Request) => {
   }
 
   try {
-    const supabase = createClient(ORIGINAL_SUPABASE_URL, ORIGINAL_SUPABASE_PUBLIC_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { data, error } = await supabase.auth.getUser(match[1]);
+    const { user } = clients(request);
+    const { data, error } = await user.auth.getUser();
     if (error || !data?.user) return json({ error: "Invalid session" }, 401, headers);
+    const profile = await user.from('profile').select('wird_geloescht').eq('id', data.user.id).single();
+    if (profile.error || !profile.data || profile.data.wird_geloescht) return json({ error: 'Account unavailable' }, 403, headers);
+    if (!PROGRESS_UPSTREAM || !/^https:\/\//.test(PROGRESS_UPSTREAM)) return json({ error: 'Test progress upstream not configured' }, 503, headers);
 
-    const response = await fetch(PROGRESS_UPSTREAM + encodeURIComponent(id), {
+    const response = await fetch(PROGRESS_UPSTREAM.replace(/\/?$/, '/') + encodeURIComponent(id), {
       headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(5000),
     });

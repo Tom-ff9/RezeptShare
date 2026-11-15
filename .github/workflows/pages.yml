@@ -2,10 +2,13 @@
 name: GitHub Pages veröffentlichen
 
 on:
-  push:
-    branches:
-      - feature/ki-rezept-assistent
   workflow_dispatch:
+    inputs:
+      deployment_bestaetigt:
+        description: 'Veröffentlichung des Test-Frontends ausdrücklich freigeben'
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -31,6 +34,7 @@ jobs:
           path: dist
 
   deploy:
+    if: github.repository == 'nordlicht78/RezeptShare' && inputs.deployment_bestaetigt == true
     needs: build
     runs-on: ubuntu-latest
 

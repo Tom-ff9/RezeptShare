@@ -31,6 +31,7 @@ const migration = (await fs.readFile(new URL('../supabase/migrations/20261106000
 await db.exec(migration);
 await db.exec(await fs.readFile(new URL('../supabase/migrations/202611060002_gruppenverwaltung.sql',import.meta.url),'utf8'));
 await db.exec(await fs.readFile(new URL('../supabase/migrations/202611100001_rezeptgruppen_teilen.sql',import.meta.url),'utf8'));
+await db.exec(await fs.readFile(new URL('../supabase/migrations/202611140001_kochbuch_import.sql',import.meta.url),'utf8'));
 assert.equal((await db.query(`select count(*)::int n from public.profile where profilbild_festgelegt`)).rows[0].n,4);
 assert.equal((await db.query(`select count(*)::int n from public.gruppen_mitglieder where rolle='besitzer'`)).rows[0].n,0);
 async function asUser(i, query, params=[]) {
@@ -41,6 +42,20 @@ async function asUser(i, query, params=[]) {
     finally { await db.exec('reset role'); await db.exec(`select set_config('request.jwt.claim.sub','',false)`); }
 }
 const scalar = r => Object.values(r.rows[0])[0];
+// Nur die Edge Function darf Limits reservieren; fehlgeschlagene KI-Aufträge zählen ebenfalls.
+await assert.rejects(asUser(0,'select public.rezept_import_limit($1)',[ids[0]]));
+await assert.rejects(asUser(0,'select * from public.rezept_import_nutzung'));
+assert.equal(scalar(await db.query('select public.rezept_import_limit($1)',[ids[0]])),true);
+assert.equal(scalar(await db.query('select public.rezept_import_limit($1)',[ids[0]])),false);
+for(let i=1;i<10;i++) {
+ await db.query("update public.rezept_import_nutzung set zuletzt=clock_timestamp()-interval '61 seconds' where person=$1",[ids[0]]);
+ assert.equal(scalar(await db.query('select public.rezept_import_limit($1)',[ids[0]])),true);
+}
+await db.query("update public.rezept_import_nutzung set zuletzt=clock_timestamp()-interval '61 seconds' where person=$1",[ids[0]]);
+assert.equal(scalar(await db.query('select public.rezept_import_limit($1)',[ids[0]])),false);
+await db.query("update public.rezept_import_nutzung set tag=tag-1 where person=$1",[ids[0]]);
+assert.equal(scalar(await db.query('select public.rezept_import_limit($1)',[ids[0]])),true);
+assert.equal(scalar(await db.query('select anzahl from public.rezept_import_nutzung where person=$1',[ids[0]])),1);
 const group = scalar(await asUser(0, `select public.gruppe_erstellen('Familie',true)`));
 async function invite(i) {
     const token = (await asUser(0,'select * from public.einladung_erstellen($1,$2)',[group,`p${i}@test.invalid`])).rows[0].token;

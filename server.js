@@ -8,6 +8,8 @@ const projektOrdner = __dirname;
 // Der lokale Server liefert nur die statischen Dateien aus. Alle dauerhaften
 // Daten, Anmeldungen und Bilder werden von Supabase verwaltet.
 const statischeDateien = {
+    "/kochbuch-import.js": ["kochbuch-import.js", "text/javascript; charset=utf-8"],
+    "/import-format.mjs": ["supabase/functions/_shared/import-format.mjs", "text/javascript; charset=utf-8"],
     "/": ["index.html", "text/html; charset=utf-8"],
     "/index.html": ["index.html", "text/html; charset=utf-8"],
     "/style.css": ["style.css", "text/css; charset=utf-8"],
@@ -38,7 +40,12 @@ async function anfrageBearbeiten(request, response) {
     }
 
     try {
-        const inhalt = await fs.readFile(path.join(projektOrdner, datei[0]));
+        let quelldatei = datei[0];
+        if (quelldatei === 'konfiguration.js') {
+            try { await fs.access(path.join(projektOrdner, 'konfiguration.lokal.js')); quelldatei = 'konfiguration.lokal.js'; }
+            catch (e) { if (e.code !== 'ENOENT') throw e; }
+        }
+        const inhalt = await fs.readFile(path.join(projektOrdner, quelldatei));
         response.writeHead(200, {
             "Content-Type": datei[1],
             "Cache-Control": datei[0] === "konfiguration.js" ? "no-store" : "no-cache",
