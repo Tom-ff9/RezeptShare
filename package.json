@@ -5,8 +5,8 @@
   "description": "Einfache Rezept-App für Familien und Gruppen",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check captcha.js && node --check konfiguration.js && node --check script.js && node --check funktionen.js && node --check gruppen.js && node --check rezeptgruppen.js && node --check tests/projekt-test.js && node --check tests/auth-test.cjs && node --check scripts/build-pages.cjs && node --check tests/auth-browser-test.cjs && node --check tests/pages-test.cjs && node --check ki-assistent.js && node --check ki-rezept-v2.js && node --check kochbuch-import.js && node --check supabase/functions/_shared/import-format.mjs && node --check supabase/functions/_shared/import-handler.mjs && node --check tests/import-test.mjs && node --check tests/integration-browser-test.cjs && node --check scripts/test-browser-suite.cjs && node --check scripts/prepare-supabase-test.cjs && node --check tests/isolation-test.cjs && node --check tests/progress-test.mjs && node --check scripts/demo.cjs",
-    "test": "node tests/auth-test.cjs && node tests/aenderungen-test.mjs && node tests/edge-test.mjs && node tests/projekt-test.js && node tests/pages-test.cjs && node tests/ki-rezept-v2-test.cjs && node tests/import-test.mjs && node tests/isolation-test.cjs && node tests/progress-test.mjs",
+    "check": "node --check server.js && node --check uuid.js && node --check rezept-anzeige.js && node --check tests/rezept-anzeige-test.cjs && node --check tests/uuid-test.cjs && node --check captcha.js && node --check konfiguration.js && node --check script.js && node --check funktionen.js && node --check gruppen.js && node --check rezeptgruppen.js && node --check tests/projekt-test.js && node --check tests/auth-test.cjs && node --check scripts/build-pages.cjs && node --check tests/auth-browser-test.cjs && node --check tests/pages-test.cjs && node --check ki-assistent.js && node --check ki-rezept-v2.js && node --check kochbuch-import.js && node --check supabase/functions/_shared/import-format.mjs && node --check supabase/functions/_shared/import-handler.mjs && node --check tests/import-test.mjs && node --check tests/integration-browser-test.cjs && node --check scripts/test-browser-suite.cjs && node --check scripts/prepare-supabase-test.cjs && node --check tests/isolation-test.cjs && node --check tests/progress-test.mjs && node --check scripts/demo.cjs && node --check scripts/supabase-test-guard.cjs && node --check scripts/supabase-test-release.cjs && node --check tests/test-project-guard-test.cjs && node --check scripts/start-test-live.cjs && node --check tests/test-server-guard-test.cjs && node --check tests/import-vergleich.mjs && node --check tests/import-regression-test.mjs && node --check tests/test-release-guard-test.cjs && node --check tests/import-fixture-browser-test.cjs",
+    "test": "node tests/rezept-anzeige-test.cjs && node tests/uuid-test.cjs && node tests/auth-test.cjs && node tests/aenderungen-test.mjs && node tests/edge-test.mjs && node tests/projekt-test.js && node tests/pages-test.cjs && node tests/ki-rezept-v2-test.cjs && node tests/import-test.mjs && node tests/isolation-test.cjs && node tests/progress-test.mjs && node tests/test-project-guard-test.cjs && node tests/test-server-guard-test.cjs && node tests/import-regression-test.mjs && node tests/test-release-guard-test.cjs",
     "test:db": "node tests/datenbank-test.mjs",
     "test:browser": "node tests/browser-test.cjs && node tests/rezeptgruppen-browser-test.cjs",
     "test:auth:browser": "node tests/auth-browser-test.cjs",
@@ -15,7 +15,11 @@
     "test:integration:browser": "node tests/integration-browser-test.cjs",
     "test:browser:all": "node scripts/test-browser-suite.cjs",
     "prepare:supabase:test": "node scripts/prepare-supabase-test.cjs",
-    "demo": "node scripts/demo.cjs"
+    "demo": "node scripts/demo.cjs",
+    "plan:supabase:test": "node scripts/supabase-test-release.cjs plan",
+    "start:test": "node scripts/start-test-live.cjs",
+    "test:import:regression": "node tests/import-regression-test.mjs",
+    "test:schutz": "node tests/test-project-guard-test.cjs && node tests/test-server-guard-test.cjs && node tests/test-release-guard-test.cjs"
   },
   "engines": {
     "node": ">=22.13.0"

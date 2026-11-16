@@ -1,0 +1,28 @@
+{
+  "synthetisch": true,
+  "seiten": 1,
+  "rezepte": 1,
+  "name": "Kartoffelsuppe",
+  "portionen": 2,
+  "zutaten": [
+    "400 g Kartoffeln",
+    "1 Möhre",
+    "1 kleine Zwiebel",
+    "600 ml Gemüsebrühe",
+    "1 EL Öl",
+    "Salz und Pfeffer"
+  ],
+  "zubereitungsschritte": 5,
+  "garzeit_minuten": 20,
+  "gerichtsfotos": 0,
+  "naehrwerte": null,
+  "notiz": "Stückig servieren.",
+  "bild_sha256": "b362ed778264d3ba04940246f99602a6b8bdb88afee4a024b6f4378a2c1c2b51",
+  "schritte": [
+    "Gemüse schälen und in kleine Würfel schneiden.",
+    "Zwiebel im Öl glasig dünsten.",
+    "Kartoffeln und Möhre hinzufügen.",
+    "Brühe angießen und 20 Minuten köcheln lassen.",
+    "Mit Salz und Pfeffer abschmecken."
+  ]
+}

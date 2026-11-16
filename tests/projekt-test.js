@@ -44,13 +44,13 @@ async function testAusfuehren() {
 
     const server = spawn(process.execPath, ["server.js"], {
         cwd: projektOrdner,
-        env: { ...process.env, PORT: String(testPort) },
+        env: { ...process.env, PORT: String(testPort), REZEPTSHARE_OFFLINE_TEST: '1' },
         stdio: ["ignore", "pipe", "pipe"]
     });
 
     try {
         await aufServerWarten();
-        for (const datei of ["/", "/captcha.js", "/style.css", "/konfiguration.js", "/script.js", "/funktionen.js", "/gruppen.js", "/assets/profil-standard.svg"]) {
+        for (const datei of ["/", "/captcha.js", "/uuid.js", "/style.css", "/konfiguration.js", "/script.js", "/funktionen.js", "/gruppen.js", "/assets/profil-standard.svg"]) {
             const antwort = await fetch(basisUrl + datei);
             assert.equal(antwort.status, 200, datei + " sollte erreichbar sein");
         }

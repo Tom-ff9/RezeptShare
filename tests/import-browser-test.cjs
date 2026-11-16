@@ -25,7 +25,7 @@ function importFixture(result) {
 }
 (async () => {
     const { rezept } = await import('./import-fixtures.mjs');
-    const r = rezept(), b = rezept('Suppe'), c = rezept('Kuchen Fortsetzung',2); c.zuordnungUnsicher=true;
+    const r = rezept(), b = rezept('Suppe'), c = rezept('Kuchen Fortsetzung',2); b.fotos=[]; c.zuordnungUnsicher=true;
     const browser = await chromium.launch({headless:true,executablePath:process.env.BROWSER_BINARY});
     try {
         const page = await browser.newPage({viewport:{width:390,height:844}}), errors=[];
@@ -48,6 +48,10 @@ function importFixture(result) {
         assert.equal(await page.locator('#import-kamera').getAttribute('capture'),'environment');
         await page.locator('#import-einwilligung').check(); await page.locator('#import-erkennen').click();
         await page.waitForFunction(()=>document.querySelectorAll('.import-rezept').length===3);
+        const resultCards=page.locator('.import-rezept');
+        assert.equal(await resultCards.nth(0).getByLabel('Bildquelle').inputValue(),'foto:0','Eindeutiges Foto dieses Rezeptes wird vorausgewählt');
+        assert.equal(await resultCards.nth(1).getByLabel('Bildquelle').inputValue(),'kein','Rezept ohne zugeordnetes Gerichtsfoto bleibt ohne Bild');
+        await page.waitForFunction(()=>document.querySelector('.import-ausschnitt-vorschau')?.width>0,'', {timeout:5000});
         const payload = await page.evaluate(()=>mockState.calls.find(c=>c[0]==='rezept-importieren')[1]);
         assert.equal(payload.bilder.length,2); assert.ok(payload.bilder[0].startsWith('data:image/jpeg;base64,'));
         assert.ok(payload.bilder[0].length<1400000);

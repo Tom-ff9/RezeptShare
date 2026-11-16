@@ -3,7 +3,7 @@
 window.REZEPT_SHARE_KONFIGURATION = Object.freeze({
     supabaseUrl: 'https://DEINE_TESTPROJEKT_REFERENZ.supabase.co',
     supabasePublishableKey: 'DEIN_OEFFENTLICHER_TESTPROJEKT_KEY',
-    // Optional: ein separat bereitgestellter KI-Testdienst, keine produktiven URLs.
+    // Im geschützten Buchimport-Testmodus zwingend leer lassen; kein weiterer KI-Dienst.
     kiUrl: '',
     kiPublishableKey: '',
     kiProgressUrl: ''

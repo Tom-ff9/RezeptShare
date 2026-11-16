@@ -81,6 +81,8 @@ Private Bilder verwenden weiterhin zeitlich begrenzte Links; Datenbankregeln und
 
 ---
 
+Die aktuelle lokale Buchimport-Testvorbereitung mit Schutzprüfungen und Fixture-Regression ist in [README-IMPORT-TESTS.md](README-IMPORT-TESTS.md) beschrieben.
+
 ## Entwicklung
 
 <details>

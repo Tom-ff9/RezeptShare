@@ -4,8 +4,9 @@ Deno.serve(async req => {
     if (req.method !== 'POST') return antwort({ error: 'Nur POST ist erlaubt.' }, 405);
     try {
         const { user, admin, passwordClient } = clients(req);
-        const { user: person } = pruefen(await user.auth.getUser());
-        if (!person?.email) return antwort({ error: 'Bitte melde dich erneut an.' }, 401);
+        const authentication = await user.auth.getUser();
+        const person = authentication.data?.user;
+        if (authentication.error || !person?.email) return antwort({ error: 'Bitte melde dich erneut an.' }, 401);
         const { passwort, bestaetigt } = await req.json();
         if (bestaetigt !== true || typeof passwort !== 'string') throw new Error('Bitte bestätige die Löschung mit deinem Passwort.');
         const reauth = passwordClient();

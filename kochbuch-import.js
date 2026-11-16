@@ -1,4 +1,4 @@
-import { importPruefen, formularDaten, zusammenfuehren } from './import-format.mjs';
+import { importPruefen, formularDaten, zusammenfuehren, importFehlerMeldung, initialesGerichtsfoto } from './import-format.mjs';
 
 const $ = id => document.getElementById(id);
 const dialog = $('kochbuch-import-dialog'), status = $('import-status');
@@ -106,10 +106,10 @@ $('import-erkennen').addEventListener('click', async () => {
         const result = await serverFunktion('rezept-importieren', { einwilligung: true, bilder: seiten.map(s => s.data) });
         if (ticket !== generation || person !== aktiverBenutzer?.id) return;
         importPruefen(result, seiten.length);
-        rezepte = result.rezepte.map(r => ({ ...r, fassung: 'ueberarbeitet', bild: 'kein', geprueft: false })); hinweise = result.hinweise;
+        rezepte = result.rezepte.map(r => ({ ...r, fassung: 'ueberarbeitet', bild: initialesGerichtsfoto(r), geprueft: false })); hinweise = result.hinweise;
         status.textContent = rezepte.length ? rezepte.length + ' Rezepte erkannt. Jede Fassung, Zuordnung und Menge prüfen.' : 'Keine Rezepte erkannt. Bitte schärfere Fotos versuchen.';
         ergebnisseAnzeigen();
-    } catch (e) { if (ticket === generation) status.textContent = e.message; }
+    } catch (e) { if (ticket === generation) status.textContent = importFehlerMeldung(e); }
     finally { if (ticket === generation) sperren(false); }
 });
 
@@ -131,31 +131,38 @@ function bildEditor(parent, r) {
     r.fotos.forEach((f, i) => options.push(['foto:' + i, 'Gerichtsfoto auf Seite ' + f.seite + (f.unsicher ? ' (Zuordnung unsicher)' : '')]));
     for (const [value, text] of options) { const option = el('option', text); option.value = value; select.append(option); }
     select.value = r.bild;
-    const preview = el('div'); details.append(select, preview);
+    const cropPreview = el('div'); cropPreview.className = 'import-gerichtsfoto-vorschau'; cropPreview.setAttribute('aria-live', 'polite');
+    const preview = el('div'); details.append(select, preview); parent.append(cropPreview, details);
+    async function cropZeichnen(canvas, photo) {
+        try {
+            const bitmap = await createImageBitmap(await ausschneiden(photo));
+            canvas.width = bitmap.width; canvas.height = bitmap.height; canvas.getContext('2d').drawImage(bitmap, 0, 0); bitmap.close();
+        } catch (e) { status.textContent = e.message; }
+    }
     function render() {
-        preview.replaceChildren(); r.bild = select.value;
+        preview.replaceChildren(); cropPreview.replaceChildren(); r.bild = select.value;
         if (!r.bild.startsWith('foto:') && !r.bild.startsWith('seite:')) return;
         const photo = r.bild.startsWith('foto:') ? r.fotos[Number(r.bild.split(':')[1])] : null;
         const page = photo ? photo.seite - 1 : Number(r.bild.split(':')[1]);
+        if (photo) {
+            cropPreview.append(el('p', 'Vorausgewählter Gerichtsausschnitt – vor dem Speichern prüfen.'));
+            const selectedCrop = el('canvas'); selectedCrop.className = 'import-ausschnitt import-ausschnitt-vorschau';
+            selectedCrop.setAttribute('role', 'img'); selectedCrop.setAttribute('aria-label', 'Zugeschnittener Vorschlag für das Gerichtsfoto');
+            cropPreview.append(selectedCrop); cropZeichnen(selectedCrop, photo);
+        }
         const image = el('img'); image.src = seiten[page].url; image.alt = 'Vollständige Quellseite zur Ausschnittprüfung'; image.className = 'import-quellbild';
         preview.append(image);
         if (!photo) return;
         preview.append(el('p', 'Koordinaten in Prozent der Quellseite (links/oben ab 0). Ausschnitt vor Übernahme prüfen.'));
         const crop = el('canvas'); crop.className = 'import-ausschnitt'; crop.setAttribute('aria-label', 'Vorschau des tatsächlichen Bildausschnitts');
-        async function draw() {
-            try {
-                const blob = await ausschneiden(photo);
-                const bitmap = await createImageBitmap(blob);
-                crop.width = bitmap.width; crop.height = bitmap.height; crop.getContext('2d').drawImage(bitmap, 0, 0); bitmap.close();
-            } catch (e) { status.textContent = e.message; }
-        }
+        const draw = () => cropZeichnen(crop, photo);
         for (const [key, label] of [['seite','Quellseite'],['x','Links (%)'],['y','Oben (%)'],['breite','Breite (%)'],['hoehe','Höhe (%)']]) {
             const input = field(preview, label, key === 'seite' ? photo[key] : photo[key] * 100, value => { photo[key] = key === 'seite' ? Number(value) : Number(value) / 100; draw(); }, { type: 'number' });
             input.max = key === 'seite' ? String(seiten.length) : '100'; input.min = key === 'seite' ? '1' : '0';
         }
         preview.append(crop); draw();
     }
-    select.addEventListener('change', render); render(); parent.append(details);
+    select.addEventListener('change', render); render();
 }
 async function ausschneiden(f) {
     if (!Number.isInteger(f.seite) || !seiten[f.seite - 1] || ![f.x,f.y,f.breite,f.hoehe].every(Number.isFinite)

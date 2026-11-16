@@ -180,8 +180,7 @@
     const signal = requestController.signal;
     // Statuskanal einmal pruefen, bevor die optionale Kennung gesendet wird.
     // Ohne installierten Rueckkanal bleibt die bisherige KI-Anfrage unveraendert.
-    const candidateId = PROGRESS_URL && phaseChanged && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID() : null;
+    const candidateId = PROGRESS_URL && phaseChanged ? window.rezeptUuid.v4() : null;
     let progressId = null;
     if (candidateId) {
       try {

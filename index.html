@@ -25,6 +25,8 @@
     <link rel="stylesheet" href="style.css">
     <script src="konfiguration.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js" defer></script>
+    <script src="uuid.js" defer></script>
+    <script src="rezept-anzeige.js" defer></script>
     <script src="funktionen.js" defer></script>
     <script src="gruppen.js" defer></script>
     <script src="rezeptgruppen.js" defer></script>
@@ -210,12 +212,12 @@
                     <input id="anmelde-passwort" type="password" autocomplete="current-password" required>
                     <div
                         class="h-captcha"
-                        data-sitekey="5e00ae44-ffd2-45d6-8a28-224a8dbae75c">
+                        data-sitekey="34a0447a-5f2e-45b4-93ca-2f22783a4392">
                     </div>
                     <button class="primaer-button" type="submit">Anmelden</button>
                 </form>
                 <form id="registrier-formular" hidden>
-
+                    <fieldset id="registrier-felder">
                     <label for="registrier-name">Dein Anzeigename</label>
                     <input id="registrier-name" type="text" maxlength="60" autocomplete="name" required>
                     <label for="registrier-email">E-Mail-Adresse</label>
@@ -225,10 +227,16 @@
                     <small>Mindestens 8 Zeichen</small>
                     <div
                         class="h-captcha"
-                        data-sitekey="5e00ae44-ffd2-45d6-8a28-224a8dbae75c">
+                        data-sitekey="34a0447a-5f2e-45b4-93ca-2f22783a4392">
                     </div>
                     <button class="primaer-button" type="submit">Konto erstellen</button>
+                    </fieldset>
                 </form>
+        <section id="registrierung-bestaetigung" hidden aria-live="polite">
+            <h3>Bitte E-Mail-Adresse bestätigen</h3>
+            <p id="registrierung-bestaetigung-text">Deine Registrierungsanfrage war erfolgreich. Öffne den Link in der E-Mail und melde dich danach an.</p>
+            <button id="andere-registrierungs-email" class="sekundaer-button" type="button">Andere E-Mail-Adresse verwenden</button>
+        </section>
         <p id="auth-meldung" class="fehlermeldung" aria-live="polite"></p>
         <div class="auth-wechsel">
             <button class="auth-link" type="button" data-auth-ansicht="anmelden">Zur Anmeldung</button>
@@ -236,7 +244,10 @@
         </div>
     </dialog>
     <dialog id="rezept-detail-dialog" class="dialog rezept-dialog">
-        <button id="rezept-detail-schliessen" class="dialog-schliessen" type="button" aria-label="Rezept schließen">×</button>
+        <div class="rezept-detail-navigation">
+            <button id="rezept-zurueck-button" class="sekundaer-button rezept-zurueck-button" type="button">← Zurück zu Rezepten</button>
+            <button id="rezept-detail-schliessen" class="dialog-schliessen" type="button" aria-label="Rezept schließen">×</button>
+        </div>
         <div id="rezept-detail-inhalt"></div>
         <div class="dialog-aktionen">
             <div id="rezept-gruppen-platz"></div>

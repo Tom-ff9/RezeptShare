@@ -49,7 +49,47 @@ export function importPruefen(value, seitenzahl) {
     return value;
 }
 export function rezeptText(v) {
-    return 'Zutaten\n' + v.zutaten + '\n\nZubereitung\n' + v.zubereitung;
+    return 'Zutaten\n' + v.zutaten + '\n\nZubereitung\n' + zubereitungNummerieren(v.zubereitung);
+}
+// Nur Satz-/Listenformatierung, keine Kochschritte oder Inhalte ergänzen.
+export function zubereitungNummerieren(value) {
+    const lines = String(value ?? '').replace(/\r\n?|[\u2028\u2029]/g, '\n').split('\n');
+    const hasMarkers = lines.some(line => /^\s*(?:\d+[.)]|[-*•])\s+/.test(line));
+    const steps = [];
+    let current = '';
+    const finish = () => { if (current.trim()) steps.push(current.trim()); current = ''; };
+    for (const raw of lines) {
+        const line = raw.trim();
+        if (!line) { if (hasMarkers) finish(); else if (current) finish(); continue; }
+        const marked = line.match(/^\s*(?:\d+[.)]|[-*•])\s+(.*)$/);
+        if (marked) { finish(); current = marked[1].trim(); continue; }
+        if (hasMarkers) {
+            if (current) current += ' ' + line;
+            else current = line;
+        } else {
+            if (current && /[.!?]$/.test(current)) finish();
+            current = current ? current + ' ' + line : line;
+            if (/[.!?]$/.test(current)) finish();
+        }
+    }
+    finish();
+    return steps.map((step, index) => `${index + 1}. ${step}`).join('\n');
+}
+export function initialesGerichtsfoto(rezept) {
+    if (!rezept || rezept.zuordnungUnsicher) return 'kein';
+    const kandidaten = (Array.isArray(rezept.fotos) ? rezept.fotos : []).flatMap((foto, index) => {
+        const ganzeSeite = foto.x <= 0.01 && foto.y <= 0.01 && foto.breite >= 0.98 && foto.hoehe >= 0.98;
+        return foto.unsicher || ganzeSeite ? [] : [index];
+    });
+    return kandidaten.length === 1 ? 'foto:' + kandidaten[0] : 'kein';
+}
+export function importFehlerMeldung(fehler) {
+    if (fehler?.code === 'IMPORT_COOLDOWN') {
+        const sekunden = Number.isFinite(fehler.retryAfterSeconds) ? fehler.retryAfterSeconds : null;
+        return sekunden === null ? 'Bitte warte kurz, bevor du erneut importierst.' : `Bitte warte noch ${sekunden} ${sekunden === 1 ? 'Sekunde' : 'Sekunden'}, bevor du erneut importierst.`;
+    }
+    if (fehler?.code === 'IMPORT_DAILY_LIMIT') return 'Das Tageslimit von 10 Importaufträgen ist erreicht. Versuche es nach 00:00 UTC erneut.';
+    return typeof fehler?.message === 'string' && fehler.message ? fehler.message : 'Der Import ist fehlgeschlagen. Bitte später erneut versuchen.';
 }
 export function formularDaten(r, fassung) {
     const v = r[fassung];
@@ -61,15 +101,9 @@ export function formularDaten(r, fassung) {
             if (n !== null && (!Number.isFinite(n) || n < 0 || !variant.naehrwerte.quelle.trim())) throw new Error('Nährwerte benötigen gültige Zahlen und eine Quelle pro Portion.');
         }
     }
-    const protokoll = '\n\n--- Importprotokoll ---\nQuellen: ' + r.quellen.map(q => 'Seite ' + q.seite + ': ' + q.stelle).join('; ')
-        + '\nOriginal: ' + r.original.name + '\n' + rezeptText(r.original)
-        + '\n\nÜberarbeitet: ' + r.ueberarbeitet.name + '\n' + rezeptText(r.ueberarbeitet)
-        + '\n\nNährwerte Original: ' + JSON.stringify(r.original.naehrwerte)
-        + '\nNährwerte überarbeitet: ' + JSON.stringify(r.ueberarbeitet.naehrwerte)
-        + '\nÄnderungen:\n' + r.aenderungen.map(a => a.feld + ': ' + a.vorher + ' → ' + a.nachher + ' (' + a.hinweis + (a.unsicher ? '; unsicher' : '') + ')').join('\n')
-        + '\nNotizen: ' + r.notizen + '\nUnsicherheiten: ' + r.unsicherheiten.join('; ') + (r.zuordnungUnsicher ? '\nSeitenzuordnung war unsicher; manuell prüfen.' : '');
-    const text = rezeptText(v) + protokoll;
-    if (!v.name.trim() || !(v.zutaten + v.zubereitung).trim() || text.length > 20000) throw new Error('Name/Text fehlen oder das Importprotokoll überschreitet 20.000 Zeichen. Bitte Fassungen kürzen oder aufteilen.');
+    const notes = String(r.notizen || '').trim();
+    const text = rezeptText(v) + (notes ? '\n\nNotizen\n' + notes : '');
+    if (!v.name.trim() || !(v.zutaten + v.zubereitung).trim() || text.length > 20000) throw new Error('Name oder Rezepttext fehlen oder überschreiten 20.000 Zeichen. Bitte Fassungen kürzen oder aufteilen.');
     return { name: v.name, text, ...Object.fromEntries(['kalorien','protein','kohlenhydrate','fett'].map(k => [k, v.naehrwerte[k]])) };
 }
 export function zusammenfuehren(a, b) {

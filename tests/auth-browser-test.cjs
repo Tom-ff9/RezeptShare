@@ -13,7 +13,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
                 window.supabase = {createClient:()=>({auth:{
                     getSession:async()=>({data:{session:null}}),
                     signInWithPassword:async args=>{authCalls.push(args);return {error:{message:'Invalid login credentials'}};},
-                    signUp:async args=>{authCalls.push(args);return {data:{session:window.signupSession ? {user:{id:'new-user',email:args.email}} : null}};},
+                    signUp:async args=>{authCalls.push(args);const user={id:window.signupSession?'new-user':'pending-user',email:args.email};return {data:{session:window.signupSession ? {user} : null,user}};},
                 }, from:()=>({select:()=>({eq:()=>({single:async()=>({data:{id:'new-user',anzeigename:'Test',bild_pfad:null,profilbild_festgelegt:false}})})})})})};`});
             if (url.includes('js.hcaptcha.com/1/api.js')) return route.fulfill({contentType:'application/javascript',body:`
                 window.fakeCaptcha = [];
@@ -48,8 +48,16 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
         await page.locator('#registrier-passwort').fill('test-password');
         await page.evaluate(()=>{fakeCaptcha[1].token='signup';});
         await page.locator('#registrier-formular button[type=submit]').click();
-        await page.getByText(/Die Registrierung konnte nicht abgeschlossen werden/).waitFor();
-        assert.equal(await page.locator('#bestaetigungs-email-formular').count(),0);
+        await page.getByRole('heading',{name:'Bitte E-Mail-Adresse bestätigen'}).waitFor();
+        assert.equal(await page.locator('#registrier-name').isDisabled(),true);
+        assert.equal(await page.locator('#registrier-formular').isVisible(),false);
+        assert.equal(await page.locator('.auth-wechsel [data-auth-ansicht="anmelden"]').isVisible(),true);
+        await page.getByRole('button',{name:'Andere E-Mail-Adresse verwenden'}).click();
+        assert.equal(await page.locator('#registrier-name').isDisabled(),false);
+        assert.equal(await page.locator('#registrier-name').inputValue(),'');
+        assert.equal(await page.evaluate(()=>fakeCaptcha[1].token),'');
+        await page.locator('#registrier-name').fill('Test');
+        await page.locator('#registrier-email').fill('test@example.test');
         await page.setViewportSize({width:375,height:812});
         assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
         await page.screenshot({path:'/tmp/rezept-auth-registrierung-mobile.png',fullPage:true});

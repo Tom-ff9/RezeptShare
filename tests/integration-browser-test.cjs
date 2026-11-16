@@ -14,15 +14,16 @@ const importer = importFile.slice(importFile.indexOf('function importFixture(res
         const page = await browser.newPage({ viewport: { width: 390, height: 844 } }), errors = [], requests = [];
         page.on('pageerror', e => errors.push(e.message));
         const answer = '### 1. Reisgericht\nPortionen: 2\n**Zutaten:**\n- 200 g Reis\n**Zubereitung:**\n1. Reis kochen und servieren.';
-        const config = { supabaseUrl: 'https://isoliert.invalid', supabasePublishableKey: 'mock-public', kiUrl: 'https://ki-isoliert.supabase.co/chat', kiProgressUrl: 'https://ki-isoliert.supabase.co/progress', kiPublishableKey: 'mock-public' };
+        const baseUrl = process.env.TEST_URL || 'http://127.0.0.1:3190';
+        const config = { supabaseUrl: 'https://isoliert.invalid', supabasePublishableKey: 'mock-public', kiUrl: baseUrl + '/__test/chat', kiProgressUrl: baseUrl + '/__test/progress', kiPublishableKey: 'mock-public' };
         await page.route('https://**/*', route => {
             const url = route.request().url();
             if (url.includes('cdn.jsdelivr.net')) return route.fulfill({ contentType: 'application/javascript', body: `${base};mockInstall();${sharing};sharingFixture();${importer};importFixture(${JSON.stringify({hinweise:[],rezepte:[rezept()]})});` });
-            if (url.startsWith('https://ki-isoliert.supabase.co/')) {
-                requests.push(route.request());
-                return route.fulfill({ contentType: 'application/json', body: JSON.stringify(url.includes('/progress') ? {phase:'waiting'} : {answer}) });
-            }
             throw new Error('Unerlaubte externe Anfrage im Test: ' + url);
+        });
+        await page.route('**/__test/*', route => {
+            requests.push(route.request());
+            return route.fulfill({ contentType: 'application/json', body: JSON.stringify(route.request().url().includes('/progress') ? {phase:'waiting'} : {answer}) });
         });
         // CAPTCHA ist kein Bestandteil dieses Tests.
         await page.route('https://js.hcaptcha.com/**', route => route.fulfill({ contentType:'application/javascript',body:'' }));

@@ -21,10 +21,20 @@ async function serverFunktion(name, body) {
     const result = await supabaseClient.functions.invoke(name, { body });
     if (result.error) {
         let message = result.error.message;
-        try { message = (await result.error.context.json()).error || message; } catch { /* Netzwerkfehler ohne JSON */ }
-        throw new Error(message);
+        let detail = {};
+        try { detail = await result.error.context.json(); message = detail.error || message; } catch { /* Netzwerkfehler ohne JSON */ }
+        const error = new Error(message);
+        error.status = result.error.context?.status;
+        error.code = detail.code;
+        error.retryAfterSeconds = detail.retryAfterSeconds;
+        error.resetAt = detail.resetAt;
+        throw error;
     }
-    if (result.data?.error) throw new Error(result.data.error);
+    if (result.data?.error) {
+        const error = new Error(result.data.error);
+        Object.assign(error, { code: result.data.code, retryAfterSeconds: result.data.retryAfterSeconds, resetAt: result.data.resetAt });
+        throw error;
+    }
     return result.data;
 }
 async function profilBildUrl(pfad) {
@@ -69,7 +79,7 @@ async function profilSpeichern(spaeter = false) {
             bildDateiPruefen(file);
             const decoded = await createImageBitmap(file); decoded.close();
             const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
-            uploaded = aktiverBenutzer.id + '/' + crypto.randomUUID() + '.' + ext;
+            uploaded = aktiverBenutzer.id + '/' + window.rezeptUuid.v4() + '.' + ext;
             datenAusErgebnis(await supabaseClient.storage.from('profilbilder').upload(uploaded, file, { contentType: file.type, upsert: false }));
         }
         const path = uploaded || old;
@@ -144,10 +154,15 @@ function markierungElement(mark, neu, entfernt, onHide) {
     });
     note.append(close); span.append(note); return span;
 }
-function textMitMarkierungen(text, marks, onHide) {
+function textMitMarkierungen(text, marks, onHide, sourceOffset = 0) {
     const fragment = document.createDocumentFragment();
-    const ranges = marks.flatMap(m => (m.bereiche || [{ start: m.start_pos, end: m.ende_pos }]).map((r, i) => ({ ...r, mark: m, removed: i === 0 ? m.alter_text : '' })))
-        .sort((a,b) => a.start - b.start || a.end - b.end);
+    const sourceEnd = sourceOffset + text.length;
+    const ranges = marks.flatMap(m => (m.bereiche || [{ start: m.start_pos, end: m.ende_pos }]).map((r, i) => {
+        const start = Math.max(r.start, sourceOffset), end = Math.min(r.end, sourceEnd);
+        if (start >= end) return null;
+        return { start: start - sourceOffset, end: end - sourceOffset, mark: m,
+            removed: i === 0 && start === r.start ? m.alter_text : '' };
+    }).filter(Boolean)).sort((a,b) => a.start - b.start || a.end - b.end);
     let pos = 0;
     for (const r of ranges) {
         if (r.start < pos || r.end > text.length) continue;
@@ -180,7 +195,7 @@ async function aenderungenAnzeigen(rezept) {
             marks = marks.filter(m => Date.parse(m.ablauf_am) > Date.now());
             const hide = id => { marks = marks.filter(m => m.id !== id); render(); };
             rezeptDetailInhalt.querySelector('.rezept-detail-titel').replaceChildren(textMitMarkierungen(rezept.name, marks.filter(m => m.feld === 'name'), hide));
-            rezeptDetailInhalt.querySelector('.rezept-text').replaceChildren(textMitMarkierungen(rezept.text, marks.filter(m => m.feld === 'text'), hide));
+            rezeptDetailInhalt.querySelector('.rezept-text')?.replaceWith(rezeptTextDarstellen(rezept.text, marks.filter(m => m.feld === 'text'), hide));
             rezeptDetailInhalt.querySelector('.weitere-aenderungen')?.remove();
             const extra = elementErstellen('div', 'weitere-aenderungen');
             for (const mark of marks.filter(m => !['name','text'].includes(m.feld))) {

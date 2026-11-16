@@ -1,0 +1,6 @@
+{
+  "projectRef": "DEINE_TESTPROJEKT_REFERENZ",
+  "projectName": "RezeptShare-Test",
+  "environment": "test",
+  "confirmedByUser": false
+}

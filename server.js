@@ -4,11 +4,26 @@ const fs = require("node:fs/promises");
 
 const port = Number(process.env.PORT || 3000);
 const projektOrdner = __dirname;
+// Automatisierte Tests ignorieren lokale Live-Werte vollständig und erhalten keine Supabase-CSP-Freigabe.
+const offlineTest = process.env.REZEPTSHARE_OFFLINE_TEST === '1';
+const testProjektRef = offlineTest ? undefined : process.env.REZEPTSHARE_TEST_PROJECT_REF;
+const { readTarget, readPublicConfig, readOfflineConfig } = require('./scripts/supabase-test-guard.cjs');
+function laufzeitKonfiguration() {
+    if (testProjektRef) {
+        readTarget(projektOrdner, testProjektRef);
+        return readPublicConfig(projektOrdner, testProjektRef);
+    }
+    return readOfflineConfig(projektOrdner, { ignoreLocal: offlineTest });
+}
+// Auch npm start ist offline, solange kein bestätigtes Testziel angegeben wurde.
+laufzeitKonfiguration();
 
 // Der lokale Server liefert nur die statischen Dateien aus. Alle dauerhaften
 // Daten, Anmeldungen und Bilder werden von Supabase verwaltet.
 const statischeDateien = {
     "/kochbuch-import.js": ["kochbuch-import.js", "text/javascript; charset=utf-8"],
+    "/uuid.js": ["uuid.js", "text/javascript; charset=utf-8"],
+    "/rezept-anzeige.js": ["rezept-anzeige.js", "text/javascript; charset=utf-8"],
     "/import-format.mjs": ["supabase/functions/_shared/import-format.mjs", "text/javascript; charset=utf-8"],
     "/": ["index.html", "text/html; charset=utf-8"],
     "/index.html": ["index.html", "text/html; charset=utf-8"],
@@ -40,21 +55,23 @@ async function anfrageBearbeiten(request, response) {
     }
 
     try {
-        let quelldatei = datei[0];
-        if (quelldatei === 'konfiguration.js') {
-            try { await fs.access(path.join(projektOrdner, 'konfiguration.lokal.js')); quelldatei = 'konfiguration.lokal.js'; }
-            catch (e) { if (e.code !== 'ENOENT') throw e; }
-        }
-        const inhalt = await fs.readFile(path.join(projektOrdner, quelldatei));
+        const config = laufzeitKonfiguration();
+        // Niemals den JS-Quelltext ausliefern: nur die geprüfte Feld-Allowlist serialisieren.
+        const inhalt = datei[0] === 'konfiguration.js'
+            ? 'window.REZEPT_SHARE_KONFIGURATION=Object.freeze(' + JSON.stringify(config) + ');'
+            : await fs.readFile(path.join(projektOrdner, datei[0]));
+        const https = testProjektRef ? ` https://${testProjektRef}.supabase.co` : '';
+        const wss = testProjektRef ? ` wss://${testProjektRef}.supabase.co` : '';
+        const csp = `default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://hcaptcha.com https://*.hcaptcha.com; connect-src 'self'${https}${wss} https://hcaptcha.com https://*.hcaptcha.com; img-src 'self' data: blob:${https} https://hcaptcha.com https://*.hcaptcha.com; style-src 'self' 'unsafe-inline' https://hcaptcha.com https://*.hcaptcha.com; frame-src https://hcaptcha.com https://*.hcaptcha.com; object-src 'none'; base-uri 'self'; form-action 'self'`;
         response.writeHead(200, {
             "Content-Type": datei[1],
             "Cache-Control": datei[0] === "konfiguration.js" ? "no-store" : "no-cache",
             "X-Content-Type-Options": "nosniff",
-            "Content-Security-Policy": "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://hcaptcha.com https://*.hcaptcha.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://hcaptcha.com https://*.hcaptcha.com; img-src 'self' data: blob: https://*.supabase.co https://hcaptcha.com https://*.hcaptcha.com; style-src 'self' 'unsafe-inline' https://hcaptcha.com https://*.hcaptcha.com; frame-src https://hcaptcha.com https://*.hcaptcha.com; object-src 'none'; base-uri 'self'; form-action 'self'"
+            "Content-Security-Policy": csp
         });
         response.end(inhalt);
     } catch (fehler) {
-        console.error(fehler);
+        console.error('Lokale Datei oder Testkonfiguration nicht verfügbar.');
         response.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
         response.end("Die Datei konnte nicht geladen werden.");
     }

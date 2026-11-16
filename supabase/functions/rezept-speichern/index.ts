@@ -5,8 +5,9 @@ Deno.serve(async req => {
     if (req.method !== 'POST') return antwort({ error: 'Nur POST ist erlaubt.' }, 405);
     try {
         const { user, admin } = clients(req);
-        const { user: person } = pruefen(await user.auth.getUser());
-        if (!person) return antwort({ error: 'Bitte melde dich an.' }, 401);
+        const authentication = await user.auth.getUser();
+        const person = authentication.data?.user;
+        if (authentication.error || !person) return antwort({ error: 'Bitte melde dich an.' }, 401);
         const { id, version, daten } = await req.json();
         if (!Number.isSafeInteger(id) || !Number.isSafeInteger(version) || !daten || typeof daten.name !== 'string' || typeof daten.text !== 'string'
             || !daten.name.trim() || daten.name.length > 120 || !daten.text.trim() || daten.text.length > 20000) throw new Error('Ungültige Rezeptdaten.');

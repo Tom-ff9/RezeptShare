@@ -18,16 +18,18 @@ function harness(source, fixture) {
 }
 const deleteSource=await fs.readFile(new URL('../supabase/functions/konto-loeschen/index.ts',import.meta.url),'utf8');
 const person={id:'p1',email:'one@test.invalid'};
-function deletionFixture({passwordFail=false,storageFail=false}={}) {
+function deletionFixture({passwordFail=false,storageFail=false,unauthenticated=false}={}) {
     return calls=>({
-        user:{auth:{getUser:async()=>({data:{user:person}})}},
+        user:{auth:{getUser:async()=>unauthenticated?{data:{user:null},error:{message:'Auth session missing!'}}:{data:{user:person}}}},
         passwordClient:()=>({auth:{signInWithPassword:async()=>passwordFail?{error:{message:'Falsches Passwort'}}:{data:{user:person}},signOut:async()=>({})}}),
         admin:{rpc:async(name)=>{calls.push(name);return {data:name==='konto_dateien_vorbereiten'?[{bucket_id:'profilbilder',name:'p1/photo.png'}]:null};},
             storage:{from:()=>({remove:async()=>{calls.push('storage-remove');return storageFail?{error:{message:'Storage offline'}}:{data:{}};}})},
             auth:{admin:{deleteUser:async()=>{calls.push('auth-delete');return {data:{}};}}}}
     });
 }
-let h=harness(deleteSource,deletionFixture({passwordFail:true}));
+let h=harness(deleteSource,deletionFixture({unauthenticated:true}));
+assert.equal((await h.request({passwort:'anything',bestaetigt:true})).status,401);assert.deepEqual(h.calls,[]);
+h=harness(deleteSource,deletionFixture({passwordFail:true}));
 assert.equal((await h.request({passwort:'bad',bestaetigt:true})).status,400);assert.deepEqual(h.calls,[]);
 h=harness(deleteSource,deletionFixture());
 assert.equal((await h.request({passwort:'ok',bestaetigt:false})).status,400);assert.deepEqual(h.calls,[]);
@@ -37,13 +39,15 @@ h=harness(deleteSource,deletionFixture());
 assert.equal((await h.request({passwort:'ok',bestaetigt:true})).status,200);
 assert.deepEqual(h.calls,['konto_loeschung_vorbereiten','konto_dateien_vorbereiten','storage-remove','konto_daten_entfernen','auth-delete']);
 const recipeSource=await fs.readFile(new URL('../supabase/functions/rezept-speichern/index.ts',import.meta.url),'utf8');
-function recipeFixture(role,version=1) {
-    return calls=>({user:{auth:{getUser:async()=>({data:{user:person}})},from:table=>{
+function recipeFixture(role,version=1,unauthenticated=false) {
+    return calls=>({user:{auth:{getUser:async()=>unauthenticated?{data:{user:null},error:{message:'Auth session missing!'}}:{data:{user:person}}},from:table=>{
+        if(unauthenticated){calls.push('unexpected-database-query');throw new Error('Database queried before authentication');}
         const data=table==='rezepte'?{id:9,gruppen_id:7,erstellt_von:'other',version,name:'Suppe',text:'Salz',bild_pfad:null}:table==='gruppen_mitglieder'?{rolle:role}:[];
         const q={select:()=>q,eq:()=>q,single:()=>q,order:()=>q,range:()=>q,then:resolve=>Promise.resolve(resolve({data}))};return q;
     }},admin:{rpc:async(name,args)=>{calls.push({name,args});return {data:2};}}});
 }
 const body={id:9,version:1,daten:{name:'Suppe',text:'Chili'}};
+h=harness(recipeSource,recipeFixture('mitglied',1,true));assert.equal((await h.request(body)).status,401);assert.deepEqual(h.calls,[]);
 h=harness(recipeSource,recipeFixture('beobachter'));assert.equal((await h.request(body)).status,403);assert.deepEqual(h.calls,[]);
 h=harness(recipeSource,recipeFixture('mitglied',2));assert.equal((await h.request(body)).status,409);assert.deepEqual(h.calls,[]);
 h=harness(recipeSource,recipeFixture('mitglied'));assert.equal((await h.request(body)).status,200);
@@ -52,9 +56,9 @@ assert.equal((await h.request({},'GET')).status,405);
 console.log('Edge-Tests erfolgreich: serverseitige Rechte, Versionskonflikt, Passwortprüfung und sichere Löschreihenfolge (Clients gemockt).');
 
 const groupDeleteSource=await fs.readFile(new URL('../supabase/functions/gruppe-loeschen/index.ts',import.meta.url),'utf8');
-function groupDeleteFixture({storageFail=false,allowed=true,exists=true}={}) {
+function groupDeleteFixture({storageFail=false,allowed=true,exists=true,unauthenticated=false}={}) {
     let files=[{name:'7/photo.jpg'}];
-    return calls=>({user:{auth:{getUser:async()=>({data:{user:person}})}},admin:{
+    return calls=>({user:{auth:{getUser:async()=>unauthenticated?{data:{user:null},error:{message:'Auth session missing!'}}:{data:{user:person}}}},admin:{
         rpc:async(name,args)=>{
             calls.push(name); assert.equal(args.p_person,person.id); assert.equal(args.p_gruppe,7);
             if(name==='gruppe_loeschung_vorbereiten') return allowed?{data:exists}:{error:{message:'Nur Admin'}};
@@ -68,6 +72,8 @@ function groupDeleteFixture({storageFail=false,allowed=true,exists=true}={}) {
         }})}
     }});
 }
+h=harness(groupDeleteSource,groupDeleteFixture({unauthenticated:true}));
+assert.equal((await h.request({gruppen_id:7,bestaetigt:true})).status,401);assert.deepEqual(h.calls,[]);
 h=harness(groupDeleteSource,groupDeleteFixture({allowed:false}));
 assert.equal((await h.request({gruppen_id:7,bestaetigt:true})).status,400);
 assert.deepEqual(h.calls,['gruppe_loeschung_vorbereiten']);

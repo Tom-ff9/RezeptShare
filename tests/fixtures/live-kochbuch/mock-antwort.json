@@ -1,0 +1,42 @@
+{
+  "hinweise": [],
+  "rezepte": [
+    {
+      "original": {
+        "name": "Kartoffelsuppe",
+        "zutaten": "400 g Kartoffeln\n1 Möhre\n1 kleine Zwiebel\n600 ml Gemüsebrühe\n1 EL Öl\nSalz und Pfeffer",
+        "zubereitung": "1. Gemüse schälen und in kleine Würfel schneiden.\n2. Zwiebel im Öl glasig dünsten.\n3. Kartoffeln und Möhre hinzufügen.\n4. Brühe angießen und 20 Minuten köcheln lassen.\n5. Mit Salz und Pfeffer abschmecken.",
+        "naehrwerte": {
+          "kalorien": null,
+          "protein": null,
+          "kohlenhydrate": null,
+          "fett": null,
+          "quelle": ""
+        }
+      },
+      "ueberarbeitet": {
+        "name": "Kartoffelsuppe",
+        "zutaten": "400 g Kartoffeln\n1 Möhre\n1 kleine Zwiebel\n600 ml Gemüsebrühe\n1 EL Öl\nSalz und Pfeffer",
+        "zubereitung": "1. Gemüse schälen und in kleine Würfel schneiden.\n2. Zwiebel im Öl glasig dünsten.\n3. Kartoffeln und Möhre hinzufügen.\n4. Brühe angießen und 20 Minuten köcheln lassen.\n5. Mit Salz und Pfeffer abschmecken.",
+        "naehrwerte": {
+          "kalorien": null,
+          "protein": null,
+          "kohlenhydrate": null,
+          "fett": null,
+          "quelle": ""
+        }
+      },
+      "quellen": [
+        {
+          "seite": 1,
+          "stelle": "Rezepttext"
+        }
+      ],
+      "zuordnungUnsicher": false,
+      "unsicherheiten": [],
+      "notizen": "Für 2 Portionen. Stückig servieren. Keine Nährwerte angegeben.",
+      "aenderungen": [],
+      "fotos": []
+    }
+  ]
+}
