@@ -48,7 +48,7 @@ Die folgenden Schritte beschreiben den weiteren Ablauf. Ziel und Bootstrap sind 
 
 ## Bestehender KI-Assistent
 
-Chat, Antwortformat, Karten, Portionsumrechnung und Fortschrittsanzeige bleiben im Frontend erhalten. `kiUrl`, `kiPublishableKey` und optional `kiProgressUrl` ersetzen die früher fest eingetragenen Dienstadressen. Für einen echten Chat-Test fehlt im Repository der Quellcode der `ki-assistent`-Edge-Function und des Mac-Studio-Backends. Diese Dienste müssen separat aus bestätigtem Quellcode bereitgestellt werden; die bisherigen Produktionsadressen sind kein zulässiger Ersatz. Der Buchimport ist davon unabhängig und benutzt ausschließlich `rezept-importieren` im eigenen Testprojekt.
+Chat, Antwortformat, Karten, Portionsumrechnung und Fortschrittsanzeige bleiben im Frontend erhalten. Im geschützten Live-Test setzt der lokale Server die beiden KI-Endpunkte intern auf seinen Loopback-Adapter; die ignorierte Browserkonfiguration enthält weiterhin keine KI-URL. Der Adapter prüft das JWT beim bestätigten Supabase-Testprojekt und leitet ausschließlich an `127.0.0.1:8000` weiter. Das Mac-Studio-Backend bleibt lokal und benötigt weder öffentlichen Port noch Tunnel. Die Edge Function `ki-assistent` ist als kompatibler, serverseitig authentifizierter HTTPS-Adapter ergänzt, aber nicht deployed. Der Buchimport bleibt unabhängig und nutzt ausschließlich `rezept-importieren` im eigenen Testprojekt.
 
 ## Grenzen und Sicherheitsstand
 

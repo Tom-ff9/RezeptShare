@@ -11,7 +11,11 @@ const { readTarget, readPublicConfig, readOfflineConfig } = require('./scripts/s
 function laufzeitKonfiguration() {
     if (testProjektRef) {
         readTarget(projektOrdner, testProjektRef);
-        return readPublicConfig(projektOrdner, testProjektRef);
+        const config = readPublicConfig(projektOrdner, testProjektRef);
+        // Der Mac-Studio-Assistent wird im lokalen Test ausschließlich über
+        // diesen gleich-origin Loopback-Adapter angesprochen. In Dateien bleibt
+        // der Endpunkt deaktiviert; die bestehende Testzielprüfung gilt weiter.
+        return Object.freeze({ ...config, kiUrl: '/__local/ki-assistent', kiProgressUrl: '/__local/ki-fortschritt' });
     }
     return readOfflineConfig(projektOrdner, { ignoreLocal: offlineTest });
 }
@@ -44,8 +48,132 @@ const statischeDateien = {
     "/ki-rezept-v2.js": ["ki-rezept-v2.js", "text/javascript; charset=utf-8"]
 };
 
+const KI_LOCAL_API = 'http://127.0.0.1:8000';
+const MAX_KI_BODY = 50000;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function lokaleBrowserOrigin(request, origin) {
+    if (!origin) return true;
+    const host = request.headers.host || '';
+    if (!host || origin !== `http://${host}`) return false;
+    const hostname = host.replace(/:\d+$/, '').toLowerCase();
+    return ['127.0.0.1', 'localhost', 'rezeptshare.test.example.com'].includes(hostname);
+}
+
+function json(response, status, value) {
+    response.writeHead(status, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff'
+    });
+    response.end(JSON.stringify(value));
+}
+
+async function leseBody(request) {
+    const chunks = [];
+    let size = 0;
+    for await (const chunk of request) {
+        size += chunk.length;
+        if (size > MAX_KI_BODY) throw Object.assign(new Error('Anfrage zu groß.'), { status: 413 });
+        chunks.push(chunk);
+    }
+    try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
+    catch { throw Object.assign(new Error('Ungültiges JSON.'), { status: 400 }); }
+}
+
+async function pruefeTestSitzung(request, response, config) {
+    const authorization = request.headers.authorization || '';
+    const match = authorization.match(/^Bearer\s+(.+)$/i);
+    if (!match) { json(response, 401, { error: 'Bitte bei RezeptShare anmelden.' }); return false; }
+    if (request.headers.apikey !== config.supabasePublishableKey) {
+        json(response, 401, { error: 'Testprojekt-Schlüssel stimmt nicht.' }); return false;
+    }
+    try {
+        const userResponse = await fetch(`${config.supabaseUrl}/auth/v1/user`, {
+            headers: { apikey: config.supabasePublishableKey, Authorization: `Bearer ${match[1]}` },
+            signal: AbortSignal.timeout(8000)
+        });
+        if (userResponse.status === 401 || userResponse.status === 403) {
+            json(response, 401, { error: 'Anmeldung ungültig oder abgelaufen.' }); return false;
+        }
+        if (!userResponse.ok) { json(response, 503, { error: 'Anmeldedienst nicht erreichbar.' }); return false; }
+        const user = await userResponse.json();
+        if (typeof user?.id !== 'string' || !user.id) {
+            json(response, 401, { error: 'Anmeldung ungültig oder abgelaufen.' }); return false;
+        }
+        const profileResponse = await fetch(`${config.supabaseUrl}/rest/v1/profile?id=eq.${encodeURIComponent(user.id)}&select=wird_geloescht`, {
+            headers: { apikey: config.supabasePublishableKey, Authorization: `Bearer ${match[1]}` },
+            signal: AbortSignal.timeout(8000)
+        });
+        if (!profileResponse.ok) { json(response, 503, { error: 'Kontostatus konnte nicht geprüft werden.' }); return false; }
+        const profiles = await profileResponse.json();
+        if (!Array.isArray(profiles) || !profiles.length || profiles[0]?.wird_geloescht) {
+            json(response, 403, { error: 'Account nicht verfügbar.' }); return false;
+        }
+        return true;
+    } catch {
+        json(response, 503, { error: 'Anmeldedienst nicht erreichbar.' }); return false;
+    }
+}
+
+async function kiRoute(request, response, pathname) {
+    if (!testProjektRef) { json(response, 404, { error: 'KI-Testadapter ist nur im bestätigten Testprojekt verfügbar.' }); return; }
+    const origin = request.headers.origin || null;
+    if (!lokaleBrowserOrigin(request, origin)) { json(response, 403, { error: 'Origin nicht erlaubt.' }); return; }
+    const config = readPublicConfig(projektOrdner, testProjektRef);
+    if (pathname === '/__local/ki-assistent' && request.method !== 'POST') {
+        json(response, 405, { error: 'Method not allowed' }); return;
+    }
+    if (pathname === '/__local/ki-fortschritt' && request.method !== 'GET') {
+        json(response, 405, { error: 'Method not allowed' }); return;
+    }
+    if (!await pruefeTestSitzung(request, response, config)) return;
+
+    try {
+        let endpoint, body;
+        if (pathname === '/__local/ki-assistent') {
+            body = await leseBody(request);
+            const messages = body?.messages;
+            const valid = Array.isArray(messages) && messages.length >= 1 && messages.length <= 12
+                && messages.every(m => m && typeof m === 'object' && ['user', 'assistant'].includes(m.role)
+                    && typeof m.content === 'string' && m.content.trim() && m.content.length <= 4000)
+                && messages[messages.length - 1]?.role === 'user' && JSON.stringify(messages).length <= MAX_KI_BODY;
+            if (!valid) { json(response, 400, { error: 'Ungültiger Chatverlauf.' }); return; }
+            endpoint = `${KI_LOCAL_API}/v1/chat/completions`;
+            body = JSON.stringify({ model: 'recipe-assistant', messages, stream: false });
+        } else {
+            const id = new URL(request.url, 'http://localhost').searchParams.get('id') || '';
+            if (!UUID_PATTERN.test(id)) { json(response, 400, { error: 'Ungültige Statuskennung.' }); return; }
+            endpoint = `${KI_LOCAL_API}/v1/recipe-progress/${id}`;
+        }
+        const upstream = await fetch(endpoint, {
+            method: body ? 'POST' : 'GET',
+            headers: body ? { 'Content-Type': 'application/json', Accept: 'application/json' } : { Accept: 'application/json' },
+            ...(body ? { body } : {}),
+            signal: AbortSignal.timeout(pathname === '/__local/ki-assistent' ? 120000 : 4000)
+        });
+        if (!upstream.ok) { json(response, 502, { error: 'Der lokale Mac-Studio-KI-Dienst ist nicht erreichbar oder hat die Anfrage abgelehnt.' }); return; }
+        const result = await upstream.json();
+        if (pathname === '/__local/ki-assistent') {
+            const answer = result?.choices?.[0]?.message?.content;
+            if (typeof answer !== 'string' || !answer.trim()) { json(response, 502, { error: 'Der lokale KI-Dienst lieferte keine gültige Antwort.' }); return; }
+            json(response, 200, { answer: answer.slice(0, 20000) });
+        } else {
+            const phase = typeof result?.phase === 'string' && /^[a-z]+$/.test(result.phase) ? result.phase : 'waiting';
+            const count = Number(result?.recipe_count);
+            json(response, 200, { phase, ...(Number.isInteger(count) && count >= 0 && count <= 100 ? { recipe_count: count } : {}) });
+        }
+    } catch (error) {
+        json(response, error.status || 502, { error: error.status ? error.message : 'Der lokale Mac-Studio-KI-Dienst ist nicht erreichbar.' });
+    }
+}
+
 async function anfrageBearbeiten(request, response) {
     const url = new URL(request.url, "http://localhost");
+    if (url.pathname === '/__local/ki-assistent' || url.pathname === '/__local/ki-fortschritt') {
+        await kiRoute(request, response, url.pathname);
+        return;
+    }
     const datei = statischeDateien[url.pathname];
 
     if (!datei) {

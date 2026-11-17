@@ -6,9 +6,9 @@ Die Integration verwendet ausschließlich das neue Testprojekt. Die früher fest
 
 ## Konfiguration nach Freigabe
 
-- `konfiguration.lokal.js`: `kiUrl` zeigt auf einen separat bereitgestellten KI-Testdienst; `kiProgressUrl` optional auf dessen Test-Edge-Function `ki-fortschritt`. `kiPublishableKey` ist ausschließlich ein öffentlicher Testprojekt-Key.
+- `konfiguration.lokal.js`: `kiUrl`, `kiProgressUrl` und `kiPublishableKey` bleiben leer. Der geschützte Live-Testserver ergänzt runtime-only lokale Routen `/__local/ki-assistent` und `/__local/ki-fortschritt`; JWT und Publishable Key werden gegen das bestätigte Testprojekt geprüft, danach geht die Anfrage an `127.0.0.1:8000`.
 - `ki-fortschritt` authentifiziert über `_shared/http.ts` gegen das eigene Testprojekt und prüft den aktiven Profilstatus. Keine Fremdprojekt-JWTs oder alten Projekt-Keys verwenden.
-- `KI_PROGRESS_UPSTREAM` ist eine serverseitige, ausdrücklich bestätigte HTTPS-Adresse einer isolierten Mac-Studio-Test-API mit einem Pfadpräfix für UUID-Statusabfragen. Standard ist leer; dann liefert die Function 503 und der Chat benutzt seine einfache Warteanzeige weiter.
+- `KI_PROGRESS_UPSTREAM` ist ein optionales serverseitiges Secret für die spätere Edge-Function-Variante. Im lokalen Test wird es nicht gebraucht; der Loopback-Adapter fragt direkt den authentifizierten Browserstatuspfad ab. Kein öffentlicher Tunnel oder Port ist aktiviert.
 - CORS erlaubt `nordlicht78.github.io` und die lokalen Entwicklungsports 3000, 3001, 3188. Kein Zugriff für das ursprüngliche GitHub-Projekt.
 
 ## Backend-Protokoll
