@@ -12,7 +12,8 @@ const allowedOrigins = new Set([
   "http://127.0.0.1:3000",
   "http://localhost:3188",
   "http://127.0.0.1:3188",
-  "https://nordlicht78.github.io"
+  "https://nordlicht78.github.io",
+  "https://tom-ff9.github.io"
 ]);
 
 function cors(origin: string | null): Record<string, string> {
@@ -59,7 +60,7 @@ Deno.serve(async (request: Request) => {
     catch { return json({ error: 'Progress upstream not configured' }, 503, headers); }
     if (upstream.protocol !== 'https:' || upstream.username || upstream.password || upstream.hostname === 'localhost'
       || upstream.hostname === '127.0.0.1' || upstream.hostname.endsWith('.local')) {
-      return json({ error: 'Test progress upstream is not secure' }, 503, headers);
+      return json({ error: 'Progress upstream is not secure' }, 503, headers);
     }
     if (!ACCESS_CLIENT_ID || !ACCESS_CLIENT_SECRET) return json({ error: 'Progress access is not securely configured' }, 503, headers);
 

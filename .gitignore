@@ -15,6 +15,7 @@ supabase/.branches/
 # Generierte Dateien
 node_modules/
 dist/
+.release-artifacts/
 playwright-report/
 test-results/
 coverage/

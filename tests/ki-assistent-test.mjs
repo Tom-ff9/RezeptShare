@@ -16,7 +16,6 @@ function harness(options = {}) {
   vm.runInNewContext(source, {
     Deno: { env: { get: name => ({
       RECIPE_ASSISTANT_UPSTREAM: options.upstream ?? 'https://macstudio.example.invalid',
-      RECIPE_ASSISTANT_API_KEY: options.key ?? 'test-only-key',
       RECIPE_ASSISTANT_ACCESS_CLIENT_ID: options.noAccess ? '' : (options.accessId ?? ''),
       RECIPE_ASSISTANT_ACCESS_CLIENT_SECRET: options.noAccess ? '' : (options.accessSecret ?? '')
     })[name] || '' }, serve: fn => { handler = fn; } },
@@ -30,20 +29,22 @@ function harness(options = {}) {
 let h = harness();
 assert.equal((await h.request(undefined, 'https://untrusted.invalid')).status, 403);
 assert.equal(h.calls.length, 0);
-for (const [options, status, calls] of [[{ anon: true }, 401, 0], [{ deleted: true }, 403, 0], [{ upstream: 'http://insecure.invalid' }, 503, 0], [{ key: '' }, 503, 0], [{ accessId: 'id-without-secret' }, 503, 0], [{ empty: true, accessId: 'service-id', accessSecret: 'service-secret' }, 502, 1], [{ noAccess: true }, 503, 0]]) {
+for (const [options, status, calls] of [[{ anon: true }, 401, 0], [{ deleted: true }, 403, 0], [{ upstream: 'http://insecure.invalid' }, 503, 0], [{ accessId: 'id-without-secret' }, 503, 0], [{ empty: true, accessId: 'service-id', accessSecret: 'service-secret' }, 502, 1], [{ noAccess: true }, 503, 0]]) {
   h = harness(options);
   assert.equal((await h.request()).status, status);
   assert.equal(h.calls.length, calls);
 }
-h = harness({ key: 'server-only-test-key', accessId: 'service-id', accessSecret: 'service-secret' });
+h = harness({ accessId: 'service-id', accessSecret: 'service-secret' });
 let response = await h.request({ messages: [{ role: 'user', content: 'Kartoffeln' }] });
 assert.equal(response.status, 200);
 assert.deepEqual(await response.json(), { answer: 'Kartoffelrezept aus der Sammlung.' });
 assert.equal(h.calls[0].url, 'https://macstudio.example.invalid/v1/chat/completions');
-assert.equal(h.calls[0].init.headers.Authorization, 'Bearer server-only-test-key');
 assert.equal(h.calls[0].init.headers['CF-Access-Client-Id'], 'service-id');
 assert.equal(h.calls[0].init.headers['CF-Access-Client-Secret'], 'service-secret');
 assert.equal(JSON.parse(h.calls[0].init.body).model, 'recipe-assistant');
+h = harness({ accessId: 'service-id', accessSecret: 'service-secret' });
+response = await h.request({ messages: [{ role: 'user', content: 'Kartoffeln' }] }, 'https://tom-ff9.github.io');
+assert.equal(response.status, 200);
 h = harness();
 response = await h.request({ messages: [{ role: 'user', content: 'x'.repeat(4001) }] });
 assert.equal(response.status, 400);

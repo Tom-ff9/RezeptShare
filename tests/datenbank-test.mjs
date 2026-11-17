@@ -32,6 +32,7 @@ await db.exec(migration);
 await db.exec(await fs.readFile(new URL('../supabase/migrations/202611060002_gruppenverwaltung.sql',import.meta.url),'utf8'));
 await db.exec(await fs.readFile(new URL('../supabase/migrations/202611100001_rezeptgruppen_teilen.sql',import.meta.url),'utf8'));
 await db.exec(await fs.readFile(new URL('../supabase/migrations/202611140001_kochbuch_import.sql',import.meta.url),'utf8'));
+await db.exec(await fs.readFile(new URL('../supabase/migrations/202611170001_kochbuch_import_api_nutzung.sql',import.meta.url),'utf8'));
 assert.equal((await db.query(`select count(*)::int n from public.profile where profilbild_festgelegt`)).rows[0].n,4);
 assert.equal((await db.query(`select count(*)::int n from public.gruppen_mitglieder where rolle='besitzer'`)).rows[0].n,0);
 async function asUser(i, query, params=[]) {
@@ -45,6 +46,10 @@ const scalar = r => Object.values(r.rows[0])[0];
 // Nur die Edge Function darf Limits reservieren; fehlgeschlagene KI-Aufträge zählen ebenfalls.
 await assert.rejects(asUser(0,'select public.rezept_import_limit($1)',[ids[0]]));
 await assert.rejects(asUser(0,'select * from public.rezept_import_nutzung'));
+await assert.rejects(asUser(0,'select * from public.rezept_import_api_nutzung'));
+await db.query(`insert into public.rezept_import_api_nutzung(person,openai_response_id,model,input_tokens,output_tokens,total_tokens,cached_input_tokens,reasoning_output_tokens) values($1,'resp_test','gpt-test',100,40,140,10,5)`,[ids[0]]);
+assert.equal(scalar(await db.query('select total_tokens from public.rezept_import_api_nutzung where person=$1',[ids[0]])),140);
+await assert.rejects(db.query(`insert into public.rezept_import_api_nutzung(person,model,input_tokens,output_tokens,total_tokens) values($1,'gpt-test',100,40,141)`,[ids[0]]));
 assert.equal(scalar(await db.query('select public.rezept_import_limit($1)',[ids[0]])),true);
 assert.equal(scalar(await db.query('select public.rezept_import_limit($1)',[ids[0]])),false);
 for(let i=1;i<10;i++) {

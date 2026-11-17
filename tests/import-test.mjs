@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { importPruefen, formularDaten, zusammenfuehren, importFehlerMeldung, initialesGerichtsfoto, zubereitungNummerieren } from '../supabase/functions/_shared/import-format.mjs';
-import { importHandler, bilderPruefen, begrenztLesen, importAnweisung } from '../supabase/functions/_shared/import-handler.mjs';
+import { importHandler, bilderPruefen, begrenztLesen, importAnweisung, openAiNutzungEintrag } from '../supabase/functions/_shared/import-handler.mjs';
 import { rezept, jpeg } from './import-fixtures.mjs';
 const result = { hinweise: [], rezepte: [rezept(), rezept('Suppe')] };
 assert.equal(importPruefen(result, 1).rezepte.length, 2); // zwei eigenständige Rezepte auf einem Foto
@@ -56,6 +56,11 @@ assert.deepEqual(bilderPruefen({einwilligung:true,bilder:[jpeg]}), [jpeg]);
 await assert.rejects(begrenztLesen(new Response('x'.repeat(200)), 100), /zu groß/);
 await assert.rejects(begrenztLesen(new Response('no json'), 100), /JSON/);
 
+const syntheticUsage={id:'resp_synthetic',model:'gpt-4.1-mini',usage:{input_tokens:321,output_tokens:123,total_tokens:444,input_tokens_details:{cached_tokens:11},output_tokens_details:{reasoning_tokens:22}}};
+assert.deepEqual(openAiNutzungEintrag(syntheticUsage,'person'),{person:'person',openai_response_id:'resp_synthetic',model:'gpt-4.1-mini',input_tokens:321,output_tokens:123,total_tokens:444,cached_input_tokens:11,reasoning_output_tokens:22});
+assert.equal(openAiNutzungEintrag({...syntheticUsage,usage:{input_tokens:321,output_tokens:123,total_tokens:445}},'person'),null,'Widersprüchliche Tokenwerte werden nicht protokolliert.');
+assert.equal(openAiNutzungEintrag({model:'gpt-4.1-mini',usage:{input_tokens:321,output_tokens:123,total_tokens:444}},'person').openai_response_id,null);
+
 function harness(options = {}) {
     const calls = [];
     const handler = importHandler({
@@ -63,13 +68,13 @@ function harness(options = {}) {
         clients: () => ({ user: { auth: { getUser: async () => { calls.push('auth'); return { data: { user: options.anon ? null : {id:'person'} }, error: options.authError ? {message:'jwt'} : null }; } },
             from: () => { const q = {select:()=>q,eq:()=>q,single:async()=>({data:{wird_geloescht:!!options.deleted}})}; return q; } },
             admin: {rpc:async(name,args)=>{ calls.push(['quota',name,args]); return options.quotaError ? {error:{message:'offline'}} : {data:!options.limited}; },
-                from:()=>{ const q={select:()=>q,eq:()=>q,maybeSingle:async()=>({data:options.diagnosticRow||null,error:options.diagnosticError?{message:'unavailable'}:null})}; return q; }} }),
+                from:table=>{ const q={select:()=>q,eq:()=>q,maybeSingle:async()=>({data:options.diagnosticRow||null,error:options.diagnosticError?{message:'unavailable'}:null}),insert:async row=>{calls.push(['usage',table,row]);return options.usageWriteError?{error:{message:'private db detail'}}:{error:null};}}; return q; }} }),
         antwort: (data,status=200) => ({data,status}),
         fetcher: async (_url, init) => {
             calls.push(['provider', JSON.parse(init.body)]);
             if (options.networkError) throw new Error('secret upstream failure');
             if (options.providerError) return new Response('sensitive provider details', {status:429});
-            return Response.json({ status: options.incomplete ? 'incomplete' : 'completed', output: [{type:'message',content: options.refusal ? [{type:'refusal'}] : [{ type:'output_text', text: options.invalid ? '{}' : JSON.stringify(result) }]}] });
+            return Response.json({ ...syntheticUsage, status: options.incomplete ? 'incomplete' : 'completed', output: [{type:'message',content: options.refusal ? [{type:'refusal'}] : [{ type:'output_text', text: options.invalid ? '{}' : JSON.stringify(result) }]}] });
         }
     });
     return { calls, request: (body={einwilligung:true,bilder:[jpeg]}, method='POST') => handler(new Request('https://edge.invalid', {method, ...(method==='POST' ? {body:JSON.stringify(body)} : {})})) };
@@ -92,4 +97,12 @@ const payload = h.calls.find(c=>c[0]==='provider')[1];
 assert.equal(payload.store,false); assert.equal(payload.text.format.strict,true);
 assert.equal(payload.input[0].content[1].type,'input_image'); assert.match(payload.instructions,/Niemals Mengen/);
 assert.equal(h.calls[1][1], 'rezept_import_limit'); assert.deepEqual(h.calls[1][2],{p_person:'person'});
+const usageCall=h.calls.find(c=>c[0]==='usage'); assert.equal(usageCall[1],'rezept_import_api_nutzung');
+assert.deepEqual(usageCall[2],{person:'person',openai_response_id:'resp_synthetic',model:'gpt-4.1-mini',input_tokens:321,output_tokens:123,total_tokens:444,cached_input_tokens:11,reasoning_output_tokens:22});
+assert.doesNotMatch(JSON.stringify(usageCall[2]),/Kartoffel|base64|text|secret/i,'Die Nutzungszeile enthält keine Rezept-/Bilddaten oder Schlüssel.');
+const originalConsoleError=console.error; console.error=()=>{};
+try {
+    h=harness({usageWriteError:true}); const logged=await h.request(); assert.equal(logged.status,200,'Ein Datenbankfehler nach erfolgreichem OpenAI-Aufruf zwingt nicht zu einem kostenpflichtigen Retry.');
+    assert.ok(!JSON.stringify(logged).includes('private db detail'));
+} finally { console.error=originalConsoleError; }
 console.log('Importtests erfolgreich: mehrere Rezepte/Foto, Original/Handschrift, Unsicherheiten, Zusammenführen, Quellen, Bild-/JSON-Limits, Auth, Kontosperre, Quota, Providerfehler, Ablehnung und sichere Ausgabe.');

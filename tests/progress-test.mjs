@@ -22,6 +22,7 @@ h=harness();assert.equal((await h.request('invalid','http://127.0.0.1:3188')).st
 assert.equal((await h.request(undefined,'http://127.0.0.1:3188','')).status,401);
 const response=await h.request(undefined,'http://127.0.0.1:3188');assert.equal(response.status,200);
 assert.deepEqual(await response.json(),{phase:'generating',recipe_count:3});assert.equal(h.calls.length,1);
+assert.equal((await h.request(undefined,'https://tom-ff9.github.io')).status,200);
 h=harness({accessId:'test-access-id',accessSecret:'test-access-secret'});assert.equal((await h.request(undefined,'http://127.0.0.1:3188')).status,200);
 assert.equal(h.calls[0].headers['CF-Access-Client-Id'],'test-access-id');assert.equal(h.calls[0].headers['CF-Access-Client-Secret'],'test-access-secret');
 console.log('Fortschritt geprüft: eigenes Testprojekt, Auth, Kontosperre, HTTPS-Upstream, Service-Auth, CORS und minimale Antwort.');

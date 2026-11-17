@@ -23,6 +23,26 @@ export async function begrenztLesen(response, limit = MAX_BODY) {
     try { return JSON.parse(new TextDecoder().decode(bytes)); }
     catch { throw new ImportFehler('Ungültige JSON-Daten.'); }
 }
+export function openAiNutzungEintrag(result, person) {
+    const usage = result?.usage;
+    const values = [usage?.input_tokens, usage?.output_tokens, usage?.total_tokens];
+    if (typeof result?.model !== 'string' || !result.model.trim() || !values.every(Number.isSafeInteger)
+        || values.some(value => value < 0) || usage.total_tokens !== usage.input_tokens + usage.output_tokens) return null;
+    const cached = usage.input_tokens_details?.cached_tokens;
+    const reasoning = usage.output_tokens_details?.reasoning_tokens;
+    if ((cached !== undefined && (!Number.isSafeInteger(cached) || cached < 0 || cached > usage.input_tokens))
+        || (reasoning !== undefined && (!Number.isSafeInteger(reasoning) || reasoning < 0 || reasoning > usage.output_tokens))) return null;
+    return {
+        person,
+        openai_response_id: typeof result.id === 'string' && result.id.length <= 200 ? result.id : null,
+        model: result.model.slice(0, 100),
+        input_tokens: usage.input_tokens,
+        output_tokens: usage.output_tokens,
+        total_tokens: usage.total_tokens,
+        cached_input_tokens: cached ?? null,
+        reasoning_output_tokens: reasoning ?? null
+    };
+}
 function jpegPruefen(data) {
     if (data.charCodeAt(0) !== 255 || data.charCodeAt(1) !== 216 || data.slice(-2) !== '\xff\xd9') return false;
     const byte = i => data.charCodeAt(i);
@@ -120,6 +140,13 @@ export function importHandler({ clients, antwort, apiKey, model = 'gpt-4.1-mini'
                 throw new ImportFehler(response.status === 429 ? 'Der KI-Dienst ist ausgelastet. Bitte später erneut versuchen.' : 'Der KI-Dienst konnte die Bilder nicht verarbeiten.', 502);
             }
             const result = await begrenztLesen(response, 1024 * 1024);
+            const usageRow = openAiNutzungEintrag(result, person.id);
+            if (usageRow) {
+                try {
+                    const { error } = await admin.from('rezept_import_api_nutzung').insert(usageRow);
+                    if (error) console.error('Kochbuchimport: OpenAI-Nutzungsdaten konnten nicht gespeichert werden.');
+                } catch { console.error('Kochbuchimport: OpenAI-Nutzungsdaten konnten nicht gespeichert werden.'); }
+            }
             if (result.status !== 'completed') throw new ImportFehler('Die Erkennung ist unvollständig. Bitte weniger Seiten auf einmal importieren.', 502);
             const content = (result.output || []).filter(o => o.type === 'message').flatMap(o => o.content || []);
             if (content.some(c => c.type === 'refusal')) throw new ImportFehler('Der KI-Dienst hat die Erkennung dieser Bilder abgelehnt.', 422);
