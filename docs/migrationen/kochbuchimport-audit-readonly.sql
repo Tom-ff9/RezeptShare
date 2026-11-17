@@ -12,7 +12,7 @@ where table_schema in ('public','private','storage')
   and table_name in (
     'profile','gruppen','gruppen_mitglieder','rezepte','einladungen',
     'rezept_aenderungen','ausgeblendete_aenderungen','rezept_freigaben',
-    'rezept_auftraege','rezept_import_nutzung','rezept_import_api_nutzung',
+    'rezept_auftraege','rezept_import_nutzung','rezept_import_api_nutzung','ki_assistent_nutzung',
     'buckets','objects'
   )
 order by table_schema, table_name, ordinal_position;

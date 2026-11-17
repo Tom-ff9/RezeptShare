@@ -14,6 +14,7 @@ const importer = importFile.slice(importFile.indexOf('function importFixture(res
         const page = await browser.newPage({ viewport: { width: 390, height: 844 } }), errors = [], requests = [];
         page.on('pageerror', e => errors.push(e.message));
         const answer = '### 1. Reisgericht\nPortionen: 2\n**Zutaten:**\n- 200 g Reis\n**Zubereitung:**\n1. Reis kochen und servieren.';
+        let quotaBlocked = false;
         const baseUrl = process.env.TEST_URL || 'http://127.0.0.1:3190';
         const config = { supabaseUrl: 'https://isoliert.invalid', supabasePublishableKey: 'mock-public', kiUrl: baseUrl + '/__test/chat', kiProgressUrl: baseUrl + '/__test/progress', kiPublishableKey: 'mock-public' };
         await page.route('https://**/*', route => {
@@ -23,6 +24,9 @@ const importer = importFile.slice(importFile.indexOf('function importFixture(res
         });
         await page.route('**/__test/*', route => {
             requests.push(route.request());
+            if (route.request().url().endsWith('/chat') && quotaBlocked) return route.fulfill({
+                status: 429, contentType: 'application/json', body: JSON.stringify({ error: 'KI_TAGESLIMIT', message: 'Du hast das Tageslimit von 20 KI-Anfragen erreicht. Bitte versuche es nach dem nächsten UTC-Tageswechsel erneut.', retry_after_seconds: 600 })
+            });
             return route.fulfill({ contentType: 'application/json', body: JSON.stringify(route.request().url().includes('/progress') ? {phase:'waiting'} : {answer}) });
         });
         // CAPTCHA ist kein Bestandteil dieses Tests.
@@ -32,6 +36,11 @@ const importer = importFile.slice(importFile.indexOf('function importFixture(res
         await page.getByRole('button',{name:'KI-Assistent',exact:true}).click();
         await page.locator('#ki-eingabe').fill('Rezept mit Reis'); await page.locator('#ki-senden').click();
         await page.getByRole('button',{name:'Rezeptkarten aus dieser Antwort erstellen'}).waitFor();
+        quotaBlocked = true;
+        await page.locator('#ki-eingabe').fill('Noch ein Gericht'); await page.locator('#ki-senden').click();
+        await page.waitForFunction(()=>document.querySelector('#ki-status').textContent.includes('Tageslimit von 20'));
+        assert.doesNotMatch(await page.locator('#ki-status').textContent(), /KI_TAGESLIMIT/);
+        quotaBlocked = false;
         await page.getByRole('button',{name:'Rezeptkarten aus dieser Antwort erstellen'}).click();
         await page.getByLabel('Gewünschte Portionen',{exact:true}).fill('4');
         assert.match(await page.locator('.ki-rezept-vorschau').textContent(), /400 g Reis/);

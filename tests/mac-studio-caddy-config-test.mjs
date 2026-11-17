@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
 const config = fs.readFileSync('mac-studio/Caddyfile.rezeptshare.example', 'utf8');
-assert.match(config, /kronshagen\.hopto\.org\s*\{/);
+assert.match(config, /kronshagen\.hopto\.org:8443\s*\{/);
 assert.match(config, /method POST\s+path \/v1\/chat\/completions/s);
 assert.match(config, /method GET\s+path_regexp progress \^\/v1\/recipe-progress\/.*\{12\}\$/s);
 assert.equal((config.match(/reverse_proxy 127\.0\.0\.1:8000/g) || []).length, 2);

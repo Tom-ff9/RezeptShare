@@ -1,6 +1,6 @@
 # Erst nach Prüfung/Freigabe mit der vorhandenen Caddyfile zusammenführen.
 # Keine zweite Instanz starten. Bei Aktivierung erhält Caddy das öffentliche TLS.
-kronshagen.hopto.org {
+kronshagen.hopto.org:8443 {
 	@chat {
 		method POST
 		path /v1/chat/completions

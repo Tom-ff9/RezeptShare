@@ -218,7 +218,7 @@
     phaseChanged?.("received");
     const result = await response.json();
     if (generation !== chatGeneration) throw new Error('Anfrage abgebrochen.');
-    if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+    if (!response.ok) throw new Error(result.message || result.error || `HTTP ${response.status}`);
     if (typeof result.answer !== "string" || !result.answer.trim()) {
       throw new Error("Keine gueltige KI-Antwort.");
     }
