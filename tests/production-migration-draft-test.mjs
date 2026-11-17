@@ -17,9 +17,12 @@ await clean.exec(infrastructure);
 await clean.exec(migration);
 const created = await clean.query(`
   select to_regclass('public.rezept_import_nutzung') is not null as table_exists,
-         to_regprocedure('public.rezept_import_limit(uuid)') is not null as function_exists
+         to_regprocedure('public.rezept_import_limit(uuid)') is not null as function_exists,
+         (select relrowsecurity from pg_class where oid='public.rezept_import_nutzung'::regclass) as rls_enabled,
+         has_function_privilege('anon','public.rezept_import_limit(uuid)','EXECUTE') as anon_can_execute,
+         has_function_privilege('service_role','public.rezept_import_limit(uuid)','EXECUTE') as service_can_execute
 `);
-assert.deepEqual(created.rows[0], { table_exists: true, function_exists: true });
+assert.deepEqual(created.rows[0], { table_exists: true, function_exists: true, rls_enabled: true, anon_can_execute: false, service_can_execute: true });
 await clean.close();
 
 const existing = new PGlite();

@@ -4,6 +4,8 @@ import { clients } from '../_shared/http.ts';
 // serverseitig als Secret konfiguriert; niemals Ollama/Qdrant direkt im Browser.
 const UPSTREAM = Deno.env.get('RECIPE_ASSISTANT_UPSTREAM') || '';
 const API_KEY = Deno.env.get('RECIPE_ASSISTANT_API_KEY') || '';
+const ACCESS_CLIENT_ID = Deno.env.get('RECIPE_ASSISTANT_ACCESS_CLIENT_ID') || '';
+const ACCESS_CLIENT_SECRET = Deno.env.get('RECIPE_ASSISTANT_ACCESS_CLIENT_SECRET') || '';
 const MAX_BODY_BYTES = 50_000;
 const ORIGINS = new Set([
   'https://nordlicht78.github.io',
@@ -81,6 +83,7 @@ Deno.serve(async request => {
   try { upstream = new URL(UPSTREAM); }
   catch { return json({ error: 'Mac-Studio-KI-Dienst nicht konfiguriert.' }, 503, origin); }
   if (!API_KEY) return json({ error: 'Mac-Studio-KI-Dienst nicht sicher konfiguriert.' }, 503, origin);
+  if (!ACCESS_CLIENT_ID || !ACCESS_CLIENT_SECRET) return json({ error: 'HTTPS-Zugang nicht sicher konfiguriert.' }, 503, origin);
   if (upstream.protocol !== 'https:' || upstream.username || upstream.password || upstream.hostname === 'localhost'
     || upstream.hostname === '127.0.0.1' || upstream.hostname.endsWith('.local')) {
     return json({ error: 'Mac-Studio-KI-Dienst ist nicht sicher erreichbar.' }, 503, origin);
@@ -89,7 +92,9 @@ Deno.serve(async request => {
     const response = await fetch(new URL('/v1/chat/completions', upstream), {
       method: 'POST', headers: {
         'Content-Type': 'application/json', Accept: 'application/json',
-        ...(API_KEY ? { Authorization: `Bearer ${API_KEY}` } : {})
+        Authorization: `Bearer ${API_KEY}`,
+        ...(ACCESS_CLIENT_ID ? { 'CF-Access-Client-Id': ACCESS_CLIENT_ID } : {}),
+        ...(ACCESS_CLIENT_SECRET ? { 'CF-Access-Client-Secret': ACCESS_CLIENT_SECRET } : {})
       }, body: JSON.stringify({ model: 'recipe-assistant', messages, stream: false }),
       signal: AbortSignal.timeout(90_000)
     });

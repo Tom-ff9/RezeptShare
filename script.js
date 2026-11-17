@@ -1108,8 +1108,14 @@ registrierFormular.addEventListener("submit", async event => {
         return;
     }
     await authAnfrage(registrierFormular, async captchaToken => {
+        const redirectUrl = new URL(window.location.pathname || '/', window.location.origin);
+        const currentParams = new URLSearchParams(window.location.search);
+        for (const name of ['einladung', 'rezept']) {
+            const value = currentParams.get(name);
+            if (value) redirectUrl.searchParams.set(name, value);
+        }
         const { data, error } = await supabaseClient.auth.signUp({ email, password: passwort,
-            options: { data: { anzeigename }, captchaToken, emailRedirectTo: window.location.origin }
+            options: { data: { anzeigename }, captchaToken, emailRedirectTo: redirectUrl.href }
         });
         if (error) throw error;
         document.querySelector("#registrier-passwort").value = "";

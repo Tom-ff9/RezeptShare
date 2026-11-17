@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       deployment_bestaetigt:
-        description: 'Veröffentlichung des Test-Frontends ausdrücklich freigeben'
+        description: 'GitHub Pages Veröffentlichung nach bestätigter Produktionskonfiguration freigeben'
         required: true
         type: boolean
         default: false
@@ -29,12 +29,20 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
+      - name: Confirmed production Pages configuration
+        if: github.ref == 'refs/heads/main' && inputs.deployment_bestaetigt == true
+        env:
+          REZEPTSHARE_PROD_PROJECT_REF: ${{ vars.REZEPTSHARE_PROD_PROJECT_REF }}
+          REZEPTSHARE_PROD_SUPABASE_URL: ${{ vars.REZEPTSHARE_PROD_SUPABASE_URL }}
+          REZEPTSHARE_PROD_PUBLISHABLE_KEY: ${{ vars.REZEPTSHARE_PROD_PUBLISHABLE_KEY }}
+          REZEPTSHARE_PROD_KEY_PROJECT_REF: ${{ vars.REZEPTSHARE_PROD_KEY_PROJECT_REF }}
+        run: node scripts/finalize-production-pages.cjs --confirm-ref "$REZEPTSHARE_PROD_PROJECT_REF"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
   deploy:
-    if: github.repository == 'nordlicht78/RezeptShare' && inputs.deployment_bestaetigt == true
+    if: github.repository == 'nordlicht78/RezeptShare' && github.ref == 'refs/heads/main' && inputs.deployment_bestaetigt == true
     needs: build
     runs-on: ubuntu-latest
 

@@ -1,8 +1,10 @@
-// Separates Testprojekt: optionaler Status-Endpunkt der Mac-Studio-Test-API.
+// Status-Endpunkt der Mac-Studio-Rezept-API.
 // Keine Rezepte, Tokens oder Nutzerdaten werden im Status gespeichert.
 import { clients } from '../_shared/http.ts';
 
 const PROGRESS_UPSTREAM = Deno.env.get('KI_PROGRESS_UPSTREAM') || '';
+const ACCESS_CLIENT_ID = Deno.env.get('RECIPE_ASSISTANT_ACCESS_CLIENT_ID') || '';
+const ACCESS_CLIENT_SECRET = Deno.env.get('RECIPE_ASSISTANT_ACCESS_CLIENT_SECRET') || '';
 const allowedOrigins = new Set([
   "http://localhost:3001",
   "http://127.0.0.1:3001",
@@ -52,10 +54,23 @@ Deno.serve(async (request: Request) => {
     if (error || !data?.user) return json({ error: "Invalid session" }, 401, headers);
     const profile = await user.from('profile').select('wird_geloescht').eq('id', data.user.id).single();
     if (profile.error || !profile.data || profile.data.wird_geloescht) return json({ error: 'Account unavailable' }, 403, headers);
-    if (!PROGRESS_UPSTREAM || !/^https:\/\//.test(PROGRESS_UPSTREAM)) return json({ error: 'Test progress upstream not configured' }, 503, headers);
+    let upstream: URL;
+    try { upstream = new URL(PROGRESS_UPSTREAM); }
+    catch { return json({ error: 'Progress upstream not configured' }, 503, headers); }
+    if (upstream.protocol !== 'https:' || upstream.username || upstream.password || upstream.hostname === 'localhost'
+      || upstream.hostname === '127.0.0.1' || upstream.hostname.endsWith('.local')) {
+      return json({ error: 'Test progress upstream is not secure' }, 503, headers);
+    }
+    if (!ACCESS_CLIENT_ID || !ACCESS_CLIENT_SECRET) return json({ error: 'Progress access is not securely configured' }, 503, headers);
 
-    const response = await fetch(PROGRESS_UPSTREAM.replace(/\/?$/, '/') + encodeURIComponent(id), {
-      headers: { Accept: "application/json" },
+    if (upstream.search || upstream.hash) return json({ error: 'Progress upstream URL is invalid' }, 503, headers);
+    upstream.pathname = `${upstream.pathname.replace(/\/?$/, '/')}${encodeURIComponent(id)}`;
+    const response = await fetch(upstream, {
+      headers: {
+        Accept: "application/json",
+        ...(ACCESS_CLIENT_ID ? { 'CF-Access-Client-Id': ACCESS_CLIENT_ID } : {}),
+        ...(ACCESS_CLIENT_SECRET ? { 'CF-Access-Client-Secret': ACCESS_CLIENT_SECRET } : {})
+      },
       signal: AbortSignal.timeout(5000),
     });
     if (!response.ok) return json({ error: "Mac Studio progress unavailable" }, 503, headers);

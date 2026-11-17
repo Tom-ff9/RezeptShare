@@ -4,13 +4,15 @@ Stand: 17. November 2026
 
 Repository: `nordlicht78/RezeptShare`
 
-Release-Branch: `feature/final-macstudio-integration`
+Vorbereitungsbranch: `feature/production-readiness`
 
-Ausgangscommit: `ef0bcb5bd15039f5cb440155909db8e6d52ecc90`
+Basiscommit: `1942bae9e060a0aea4677463883f440358c864a3`
 
 ## Zusammenfassung
 
 Der integrierte lokale Stand behält Rezeptverwaltung, Auth, Gruppen/Mitglieder, bestehende Rezept-/Profilbilder, öffentliche Links, die Kochbuch- und Handschrifterkennung sowie die Zutaten- und Schrittansicht bei. Der bestehende KI-Assistent verwendet wieder die vorhandene Mac-Studio-Pipeline mit Ollama und Qdrant. Für den Browser-Test ist ein Loopback-Adapter ergänzt, der Supabase-Test-JWTs vor jeder Chat- oder Fortschrittsanfrage validiert. Die Produktionsinstanz wurde nicht angesprochen, migriert oder geändert.
+
+Die Produktionsprojekt-ID konnte nicht unabhängig bestätigt werden. Ein alter Projektverweis im benachbarten Workspace ist nur ein Hinweis, kein aktiver Konfigurationsnachweis. Die lokale Supabase-CLI ist nicht angemeldet; deshalb wurden keine Produktionsdatenbank-, Auth-, Function- oder Storage-Abfragen ausgeführt. Der Pages-Produktionsabschluss ist nun als rein lokales, fail-closed Skript vorbereitet und wurde nur mit synthetischen Werten getestet.
 
 Die bestätigte Testkonfiguration zeigt ausschließlich auf `hmjtzcebgbkryucvkndu`. Die lokalen Dateien `.supabase-test/target.json` und `konfiguration.lokal.js` bleiben ignoriert. Das Frontend erhält KI-Routen nur dynamisch vom geschützten lokalen Testserver; es gibt keine KI-URL und keinen privaten Schlüssel in der Browserdatei.
 
@@ -44,6 +46,16 @@ Danach darf er nur zum fest codierten Loopback-Upstream `127.0.0.1:8000` spreche
 
 Zusätzlich ist `supabase/functions/ki-assistent` als kompatibler serverseitiger Adapter ergänzt. Sie prüft dieselbe Supabase-Authentifizierung und leitet nur zu einer per `RECIPE_ASSISTANT_UPSTREAM` gesetzten HTTPS-Adresse weiter. Der Zugriffsschlüssel muss als Secret `RECIPE_ASSISTANT_API_KEY` konfiguriert werden; fehlt er, antwortet die Function geschlossen mit 503. Beide Secrets wurden nicht gesetzt und die Function wurde nicht deployed.
 
+### Sicherer HTTPS-Pfad zum Mac Studio
+
+Auf dem Mac ist Caddy installiert, aber nicht gestartet. Die vorhandene Caddy-Datei beschreibt nur `ai.intern.franke` mit lokalem Reverse Proxy und TLS-Direktive; es gibt dort keine `basic_auth`-/`forward_auth`-Direktive. `cloudflared` und Tailscale sind nicht installiert. Eine Caddy-Validierung wurde versucht, brach aber beim Öffnen des konfigurierten `access.log` mit Sandbox-`operation not permitted` ab; daher wurde die Datei nicht vollständig validiert. Kein Listener, Tunnel, DNS oder Firewall wurde geändert.
+
+**Empfehlung, falls bestehende Konten/Domain und Freigabe vorliegen:** outbound-only Cloudflare Tunnel vom Mac Studio zu einem einzelnen geschützten Hostnamen und Cloudflare Access `Service Auth`-Policy. Nur der FastAPI-Port `127.0.0.1:8000` wird als Origin eingebunden; Ollama `11434` und Qdrant `6333` bleiben loopback. Beide Edge Functions verlangen `RECIPE_ASSISTANT_ACCESS_CLIENT_ID` und `RECIPE_ASSISTANT_ACCESS_CLIENT_SECRET` zwingend und senden die Werte als `CF-Access-Client-Id` und `CF-Access-Client-Secret`; `ki-assistent` verlangt zusätzlich den separaten Bearer-Service-Key. Ohne vollständige Werte antwortet die Function geschlossen mit 503. Sie prüft weiterhin zuerst das RezeptShare-JWT. Cloudflare beschreibt den Tunnel als outbound-only ohne eingehende Firewallports und dokumentiert Service Tokens für automatisierte Requests ([Tunnel-Dokumentation](https://developers.cloudflare.com/tunnel/), [Service Tokens](https://developers.cloudflare.com/cloudflare-one/access-controls/service-credentials/service-tokens/)). Ob ein bereits bezahlter Account/Hostname verfügbar ist, wurde nicht geprüft; kein neuer Dienst wird hier eingerichtet.
+
+Ein normaler öffentlicher Caddy-Reverse-Proxy würde DNS, einen eingehenden 443-Port, Router/Firewallregeln und Zertifikatsbetrieb erfordern. Das passt nicht zu den aktuellen Grenzen. Tailscale Serve ist nur im privaten Tailnet erreichbar und Supabase Edge tritt diesem nicht bei; Tailscale Funnel veröffentlicht den Dienst ins Internet und braucht daher zusätzlich eine Anwendungsauthentifizierung ([Serve/Funnel-Unterschied](https://tailscale.com/docs/reference/funnel-vs-sharing)). Kein solcher Pfad wurde aktiviert.
+
+Der Edge-Code setzt eine Obergrenze von 90 Sekunden und liefert bei Upstream-Ausfall eine generische 502-Antwort ohne automatische Wiederholung. Supabase nennt aktuell 150 Sekunden Request-Idle-Timeout; längere Ollama-Läufe müssen daher vor Produktivfreigabe mit realen, kostenfreien lokalen Requests geprüft werden ([Edge-Function-Limits](https://supabase.com/docs/guides/functions/limits)). Das aktuelle KI-Schema hat noch kein persistentes per-user Rate Limit. Vor Produktivdeployment muss ein Limitwert abgestimmt und serverseitig dauerhaft durchgesetzt werden; eine pro-Edge-Worker-Speicherlösung wäre dafür nicht ausreichend.
+
 ## Lokale Testumgebung
 
 Voraussetzungen: Ollama, Qdrant, Python-Umgebung `recipe-rag/.venv`, Testziel und ignorierte Testkonfiguration.
@@ -68,11 +80,48 @@ Browseradresse: **http://rezeptshare.test.example.com:3001**. Die Hostauflösung
 
 Alle erlaubten Schreibfunktionen der bestehenden App sowie der Kochbuchimport bleiben Teil derselben RezeptShare-Testarchitektur. Das Testprojekt hatte bereits seinen ausdrücklich freigegebenen Bootstrap und die fünf bestehenden Funktionen erhalten. Diese Arbeiten wurden in diesem Integrationsschritt nicht erneut ausgeführt. Die neue Function `ki-assistent` wurde nur lokal ergänzt. Es gab keine Migration, kein Secret-Setzen und kein Edge-Function-Deployment.
 
-Die Produktivkonfiguration wurde nicht aktiviert. Für die Produktivinstanz war in diesem Arbeitsverzeichnis keine bestätigte Projekt-ID vorhanden. `supabase projects list` konnte nicht gelesen werden, weil die lokale CLI nicht angemeldet ist (`AccessTokenRequiredError`); es wurde kein Token aus einer Datei oder Umgebung beschafft oder ausgegeben. Damit konnte das Produktivschema nicht sicher read-only abgefragt und der Test-/Integrationsstand nicht dagegen verglichen werden. Es wurden keine Verbindungen oder Schreibversuche zu einem Produktivprojekt gestartet.
+### Produktionsziel und Datenbankvergleich
+
+In der ignorierten `konfiguration.lokal.js` und `.supabase-test/target.json` steht ausschließlich das Testprojekt `hmjtzcebgbkryucvkndu`; produktive Projektverknüpfungen wie `supabase/.temp/project-ref` gibt es nicht. Die öffentliche GitHub-`main`-Konfiguration enthält keinen Supabase-Projektverweis. Eine alte lokale Datei neben dem Repository enthält `gcncxupedhwieybpiupi` als `ORIGINAL_SUPABASE_URL`. Das ist ein historischer Kandidat, keine aktuelle oder unabhängige Bestätigung, und er ist im Testschutz ausdrücklich gesperrt. Ich habe diesen Kandidaten nicht abgefragt.
+
+`supabase projects list --output-format json` scheiterte mit `AccessTokenRequiredError`. Der erforderliche Schritt ist ein eigener lokaler Login (`supabase login`) und anschließend die unabhängige Bestätigung im Supabase-Dashboard sowie in `supabase projects list`. Token oder Passwort dürfen dabei nicht in Dateien, Chat oder Logs übernommen werden. Erst danach darf die exakte Projekt-ID/URL als read-only Ziel verwendet werden.
+
+| Metadaten | Release-Branch `supabase/schema.sql` | Produktivprojekt |
+|---|---:|---|
+| Tabellen | 10: `profile`, `gruppen`, `gruppen_mitglieder`, `rezepte`, `einladungen`, `rezept_aenderungen`, `ausgeblendete_aenderungen`, `rezept_freigaben`, `rezept_auftraege`, `rezept_import_nutzung` | Nicht abgefragt |
+| Funktionen / Policies / Trigger | 24 / 21 / 10 | Nicht abgefragt |
+| Storage-Buckets | 3 im Release-Schema | Nicht abgefragt |
+| Historische SQL-Migrationen | 4: Profile/Rollen, Gruppenverwaltung, Rezeptgruppen/Teilen, Kochbuchimport | Migrationshistorie nicht abgefragt |
+| Auth-Settings / Redirects / hCaptcha | Frontend nutzt `captchaToken`; Pages-Rücksprung wird jetzt mit App-Unterpfad erzeugt | Nicht abgefragt |
+| Edge-Functions | 7 Quellordner im Release-Branch | Produktionsversionen nicht inventarisiert |
+
+Der Vergleich vorhandener Benutzerdatensätze, Rezeptinhalte und Bilder wurde absichtlich nicht versucht. Es wurden keine personenbezogenen Datensätze und keine Storage-Objekte gelesen.
+
+### GitHub-Pages-Produktionskonfiguration
+
+Der Release-Branch enthält jetzt `scripts/finalize-production-pages.cjs` und Tests für `scripts/production-pages-config.cjs`. Nach bestätigter Projekt-ID kann dieses lokale Skript ein bereits erzeugtes `dist/`-Artefakt finalisieren. Es lehnt `hmjtzcebgbkryucvkndu`, URL-/Key-Ref-Abweichungen und Service-Role-/Secret-Keys ab, bindet die KI-Endpunkte an dasselbe Supabase-Projekt und ersetzt die breite Supabase-CSP im Pages-HTML durch die exakte Projekt-URL. Es schreibt ausschließlich `dist/`; es verbindet sich nicht mit Supabase und deployt nicht. Die Production-Variablen wurden nicht gesetzt und das Skript wurde nur mit synthetischen Testwerten geprüft.
+
+Nach späterer unabhängiger Bestätigung wäre der Ablauf:
+
+```bash
+npm run build
+REZEPTSHARE_PROD_SUPABASE_URL='https://<bestätigte-ref>.supabase.co' \
+REZEPTSHARE_PROD_PUBLISHABLE_KEY='<öffentlicher Publishable-Key>' \
+REZEPTSHARE_PROD_KEY_PROJECT_REF='<dieselbe bestätigte-ref>' \
+node scripts/finalize-production-pages.cjs --confirm-ref '<bestätigte-ref>'
+```
+
+`REZEPTSHARE_PROD_PUBLISHABLE_KEY` ist ausdrücklich ein öffentlicher Publishable Key, kein Secret-/Service-Role-Key. Die finale `dist/konfiguration.js` enthält ihn daher öffentlich; sie wird nicht committet. `konfiguration.lokal.js` bleibt ausschließlich auf das Testprojekt gerichtet. Der Pages-Workflow ist jetzt so vorbereitet, dass er den Produktionsabschluss nur bei `main` und explizitem Dispatch-Häkchen aufruft; bis dahin muss er an fehlenden Variablen scheitern. Erst nach Projektbestätigung die öffentlichen Repository-Variablen `REZEPTSHARE_PROD_PROJECT_REF`, `REZEPTSHARE_PROD_SUPABASE_URL`, `REZEPTSHARE_PROD_PUBLISHABLE_KEY` und `REZEPTSHARE_PROD_KEY_PROJECT_REF` pflegen. Keine privaten Schlüssel als Actions-Variablen setzen.
+
+Der vermutete Standard-Pages-Pfad lautet `https://nordlicht78.github.io/RezeptShare/`; die tatsächliche Pages-Domain und der Repository-Pages-Status wurden nicht unabhängig über GitHub-Settings geprüft. `script.js` setzt nun `emailRedirectTo` auf den aktuellen App-Unterpfad und erhält ausschließlich die Parameter `einladung` und `rezept`; sonstige Queryparameter und Fragmente werden nicht in den E-Mail-Link übernommen. Für Supabase Auth wären nach Bestätigung der Pages-URL die Site URL auf diese App-URL und Redirects mindestens auf den exakten App-Pfad sowie `https://nordlicht78.github.io/RezeptShare/**` zu setzen. Die aktuelle hCaptcha-Site-ID ist im Frontend vorhanden; im Produktivprojekt muss das zugehörige hCaptcha-Secret eingerichtet und die Domain-Allowlist für `nordlicht78.github.io` geprüft/aktiviert werden. Es wurde kein Auth-Dashboard verändert.
+
+Die Produktivkonfiguration wurde nicht aktiviert. Damit konnte das Produktivschema nicht sicher read-only abgefragt und der Test-/Integrationsstand nicht dagegen verglichen werden. Es gab keine Verbindungen oder Schreibversuche zum historischen Kandidaten oder zu einem anderen Produktivprojekt.
 
 Die historischen Migrationen (`202611060001_profile_rollen.sql`, `202611060002_gruppenverwaltung.sql`, `202611100001_rezeptgruppen_teilen.sql`, `202611140001_kochbuch_import.sql`) setzen bestehende Basistabellen voraus und sind kein Bootstrap für eine leere produktive Datenbank. Für ein vorhandenes Produktionsschema ist nur die additive Importkontingent-Erweiterung als Kandidat unter [kochbuchimport-produktiv.sql](docs/migrationen/kochbuchimport-produktiv.sql) vorbereitet. Sie prüft Voraussetzungen und bricht ab, falls die Importobjekte bereits existieren. Sie darf erst nach read-only Schema- und `supabase_migrations.schema_migrations`-Vergleich sowie eigener Freigabe angewendet werden. Der Test-Bootstrap `202611150001_test_bootstrap.sql` ist ausdrücklich ungeeignet für Produktion.
 
 Diese Importerweiterung speichert ausschließlich Nutzer-ID, UTC-Tag, Auftragszähler und letzten Reservierungszeitpunkt. Sie verändert keine Benutzer-IDs, Gruppen, Mitgliedschaften, Rollen, Rezepte, Bilder, Storage-Pfade oder öffentlichen Links. Vor einer Produktivübernahme muss zusätzlich geprüft werden, dass `private.konto_aktiv(uuid)`, `auth.users` und die verwendeten Rollen vorhanden sind.
+
+Der Entwurf wurde gegen ein minimales separates PGlite-Schema geprüft: Voraussetzungen vorhanden → Tabelle/Funktion werden transaktional angelegt, RLS ist aktiv, nur `service_role` kann das RPC aufrufen; vorhandene Importobjekte → sauberer Abbruch ohne Überschreiben. Er ist bewusst fail-closed und nicht als „blind beliebig oft ausführen“ ausgelegt. Diese Prüfung sagt nichts über das unbekannte Produktivschema aus.
 
 ### Spätere kontrollierte Produktivübernahme
 
@@ -85,19 +134,46 @@ Diese Importerweiterung speichert ausschließlich Nutzer-ID, UTC-Tag, Auftragsz�
 
 ### Edge Functions und Secrets für eine spätere Veröffentlichung
 
-- Bestehende Rezeptfunktionen und `rezept-importieren` müssen gegen das tatsächliche Produktionsschema und die dort aktivierten Policies geprüft werden.
-- `ki-assistent` braucht einen stabilen, nur per HTTPS erreichbaren privaten/geschützten Backend-Endpunkt sowie serverseitige Secrets `RECIPE_ASSISTANT_UPSTREAM` und `RECIPE_ASSISTANT_API_KEY`.
-- `ki-fortschritt` braucht optional `KI_PROGRESS_UPSTREAM`, falls Fortschritt über die Edge Function statt über den lokalen Adapter geliefert werden soll.
-- `OPENAI_API_KEY` bleibt ausschließlich das Secret von `rezept-importieren`; sie wird für den Mac-Studio-Assistenten nicht verwendet.
-- Die vorhandene FastAPI bindet derzeit auf Loopback. Ohne vorhandenen privaten Netzwerkpfad ist ein Edge-Function-Aufruf aus Supabase nicht möglich. Es wird kein ungeschützter Port und kein öffentlicher Tunnel eingerichtet.
+| Function | Release-Branch-Prüfung | Voraussetzung/Limit |
+|---|---|---|
+| `rezept-speichern` | `verify_jwt=false`, prüft Session selbst mit `auth.getUser`; bestehende Gruppe/Mitgliedschaft und Version werden geprüft; CORS aus `_shared/http.ts` ist `*` | Vor Deployment gegen vorhandene Produktionsspalten, Berechtigungen und RPCs vergleichen |
+| `rezept-gruppen` | `verify_jwt=false`, manuelle Authentifizierung; gemeinsame CORS-Antwort | Prüfen, dass Produktions-RPCs und Rollen mit Release übereinstimmen |
+| `gruppe-loeschen` | `verify_jwt=false`, manuelle Auth-/Rollenprüfung; Storagebereinigung erst nach Berechtigungsprüfung; gemeinsame CORS-Antwort | Nur deployen, wenn Bucket- und Eigentümerregeln übereinstimmen |
+| `konto-loeschen` | `verify_jwt=false`, manuelle Auth-/Bestätigungsprüfung; gemeinsame CORS-Antwort | Hohe Auswirkung; separate Test- und Rollbackfreigabe nötig |
+| `rezept-importieren` | `verify_jwt=false`, Handler validiert Session; gemeinsame CORS-Antwort | Ein RPC-Auftrag pro Nutzer und UTC-Tag maximal 10, mindestens 60 Sekunden Abstand; benötigt `rezept_import_nutzung`, `rezept_import_limit` und `OPENAI_API_KEY` |
+| `ki-assistent` | `verify_jwt=false`, eigene Origin-Liste, JWT plus aktives Profil; Größen-/Nachrichtenlimits, HTTPS-Upstream, 90-s Timeout, zwingende Cloudflare-Access-Service-Header und Bearer-Service-Key | Kein persistentes KI-Tageslimit im aktuellen Schema; vor Produktivbetrieb muss eine abgestimmte per-user Begrenzung ergänzt werden |
+| `ki-fortschritt` (optional) | `verify_jwt=false`, eigene Origin-Liste, JWT plus aktives Profil; nur UUID/Statusantwort, zwingende Cloudflare-Access-Service-Header | Kein KI-Aufruf und kein persistentes Limit; `KI_PROGRESS_UPSTREAM` erforderlich |
+
+`_shared/http.ts` setzt für die bestehenden Rezept-Functions `Access-Control-Allow-Origin: *`. Das ersetzt keine JWT-/RLS-Prüfung, aber sollte vor Veröffentlichung auf die bestätigten Pages-Origins begrenzt werden. `ki-assistent` und `ki-fortschritt` haben eigene Allowlisten. Die produktiven Gegenstücke konnten nicht gelistet werden.
+
+Für `ki-assistent` sind serverseitig `RECIPE_ASSISTANT_UPSTREAM`, `RECIPE_ASSISTANT_API_KEY` und bei Cloudflare Access zusätzlich `RECIPE_ASSISTANT_ACCESS_CLIENT_ID`/`RECIPE_ASSISTANT_ACCESS_CLIENT_SECRET` vorgesehen. Die Fortschrittsfunction nutzt `KI_PROGRESS_UPSTREAM` und dieselben optionalen Access-Tokens. `OPENAI_API_KEY` bleibt ausschließlich das Secret von `rezept-importieren`; sie wird für den Mac-Studio-Assistenten nicht verwendet.
+
+Vorgesehene Deployment-Reihenfolge nach späteren Freigaben: (1) unabhängige Projektbestätigung, Schema-/Migrations- und Backupprüfung, (2) additive Importmigration, (3) Secrets im richtigen Produktionsprojekt, (4) geprüfte Rezeptfunctions, (5) `rezept-importieren`, (6) abgesicherter KI-Upstream und `ki-assistent`, (7) optional `ki-fortschritt`, (8) read-only Versions-/Statusprüfung und unauthentifizierter 401-Test, (9) finalen Pages-Build aus den bestätigten öffentlichen Werten erzeugen, (10) geschütztes Pages-Deployment erst nach separater Freigabe, danach Login und vorhandene Links/Rezepte prüfen.
 
 ## Backup und Rollback
 
-- Vor jeder späteren Migration: konsistenter Datenbankbackup/Point-in-Time-Recovery-Status sowie Schemaexport sichern; Storage-Objekte und Policies separat inventarisieren.
-- Die SQL-Kandidaten laufen transaktional. Ein Fehler vor `COMMIT` rollt die Änderung zurück.
-- Ein Rollback des Frontends/der Edge Function erfolgt durch Rückkehr auf die vorherige geprüfte Version.
-- Nach Nutzung des Importkontingents Tabelle nicht löschen: sie enthält Limitschutz-Historie. Bei Funktionsrollback bleibt sie zunächst bestehen. Ein Entfernen ist nur nach separater Prüfung, Backup und ausdrücklicher Freigabe möglich.
-- Für die übrigen KI-Erweiterungen werden keine bestehenden Rezept-, Benutzer- oder Bilddaten migriert.
+- **Vorher:** automatisierten Supabase-Backup-/PITR-Status im Dashboard bestätigen und einen konsistenten Wiederherstellungspunkt markieren; zusätzlich Schema-, Policy-, Trigger-, Bucket- und Migrationstabellen-Metadaten sichern.
+- **Restore:** Wiederherstellbarkeit in einem separaten isolierten Projekt mit vorheriger Freigabe nachweisen. Nicht in die Produktion restaurieren. Produktive Exportdateien mit Rezeptinhalten oder Nutzerdaten nicht lokal speichern.
+- **Storage:** Bucket-IDs, Sichtbarkeit, Limits und Policies sichern. Für Objektwiederherstellung providerseitige Versionierung/Backup oder einen verschlüsselten, zugriffsbeschränkten Speicher verwenden; keine private Bildsammlung in das Repository oder temporäre Testverzeichnisse kopieren.
+- **Vorher-/Nachher-Kontrolle:** nur aggregierte Tabellen-/Objektzahlen, Schema-Hashes und Rechteproben vergleichen. Bestehende Benutzer-IDs, Gruppen-/Mitgliedschaften, Rezept-IDs, Bildpfade und öffentliche Token nicht migrieren oder neu erzeugen.
+- **SQL:** Kandidaten sind transaktional. Fehler vor `COMMIT` rollen zurück. Nach Nutzung der Importkontingent-Tabelle diese nicht löschen, weil sie Limitverlauf enthält; bei Function-Rollback bleibt sie bestehen.
+- **Edge Functions:** vor Deployment Version/Commit der aktiven Function notieren und Quellpaket sichern. Rollback nur durch erneutes Bereitstellen der zuvor aktiven Version nach eigener Freigabe.
+- **Frontend:** das vorherige Pages-Artefakt und Commit-SHA sichern. Bei UI-/Auth-Fehler Pages auf das vorherige Artefakt zurückstellen; Database-Rollback ist dafür nicht erforderlich.
+- **Incident:** bei Login-/Gruppen-/Rezeptfehlern Pages zuerst zurückrollen, vorhandene Datensätze nicht löschen; bei Schemafehlern Transaktion stoppen und Logs ohne Token/PII prüfen; Storage-Probleme nicht durch bucket-Neuanlage beheben.
+
+## Geplante Veröffentlichungsreihenfolge
+
+1. Produktivprojekt-ID und Pages-Domain unabhängig bestätigen; lokale Supabase-CLI anmelden, Projektliste/Dashboard abgleichen.
+2. Read-only Schema-, Auth-, RLS-, Storage-, Function- und Migrationserfassung erstellen; aktuelle Produktionsversionen mit Tabelle oben vergleichen.
+3. Backup/PITR und Restore-Probe bestätigen; Edge-Rollbackversionen sichern.
+4. Migrations- und KI-Rate-Limit-Policy abschließend reviewen und Migration separat freigeben.
+5. Nach Freigabe nur additive Importmigration anwenden und read-only verifizieren.
+6. Notwendige Secrets ausschließlich im Produktions-Supabase-Secret-Manager setzen; Werte nie in GitHub Actions Logs ausgeben.
+7. Geprüfte Rezeptfunktionen und Importfunktion einzeln deployen; danach unauthentifizierte 401-, CORS-, RLS- und bestehende Rechteproben durchführen.
+8. Sicheren Mac-Studio-Upstream und `ki-assistent` bereitstellen; `ki-fortschritt` optional; ohne dauerhaftes Rate-Limit keine Veröffentlichung der KI-Route.
+9. Mit bestätigter Pages-URL/Key den Pages-Build finalisieren, hCaptcha/Auth-Redirects prüfen und Vorab-Artefakt ohne Deployment testen.
+10. Pages-Deployment nur nach separater Freigabe; danach zuerst Login und vorhandene geteilte Links sowie vorhandene Gruppen/Rezepte/Bilder read-only prüfen, dann eigens genehmigte Schreibtests.
+11. Alte Version bis zum erfolgreichen Cutover bereithalten; kein Datenimport und keine Benutzerneuanlage.
 
 ## Qualitätssicherung und Ergebnisse
 
@@ -107,6 +183,7 @@ Diese Importerweiterung speichert ausschließlich Nutzer-ID, UTC-Tag, Auftragsz�
 - `npm run test:db` – erfolgreich mit PGlite; keine Cloud-Datenbank berührt.
 - Der separate Produktionsmigrations-Entwurf wurde zusätzlich lokal gegen ein minimales PGlite-Schema geprüft: transaktionale Neuanlage funktioniert, bestehende Importobjekte lösen einen Abbruch aus und bleiben erhalten.
 - `npm run test:browser:all` – erfolgreich; alle Browserregressionen liefen mit kontrollierten Supabase-/KI-Mocks, ohne Live-Schreibzugriffe.
+- Produktions-Edge-Regressionen prüfen, dass beide Cloudflare-Access-Service-Token vorhanden sein müssen; fehlende Zugangsdaten führen geschlossen zu 503. Fortschritts-URLs mit Query oder Fragment werden abgelehnt.
 - Mac-Studio-Health – HTTP 200; Ollama-Modelle und Qdrant-Collection read-only erreichbar.
 - Eine echte lokale RAG-Anfrage an FastAPI – HTTP 200, Antwort und Quellen enthalten; nur Ollama/Qdrant lokal, kein OpenAI-Aufruf.
 - Live-Testserver – Start auf `127.0.0.1:3001`, Startschutz akzeptierte ausschließlich `hmjtzcebgbkryucvkndu`; ausgelieferte URL zeigt auf dieses Testprojekt. Nicht authentifizierte KI-Adapteranfrage wurde mit 401 abgewiesen.

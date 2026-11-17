@@ -92,7 +92,8 @@ function element(id = '') {
     let loaded = 0;
     context.angemeldeteAppLaden = async () => { loaded++; };
     context.supabaseClient.auth.signUp = async args => {
-        assert.equal(args.options.emailRedirectTo, 'https://example.test');
+        assert.equal(args.options.emailRedirectTo, 'https://example.test/rezept-share/?einladung=invite');
+        assert.doesNotMatch(args.options.emailRedirectTo, /other|secret/);
         assert.equal(args.options.captchaToken, 'signup-2');
         return { data: { session: { user: {id:'new-user'} } } };
     };
