@@ -3,8 +3,10 @@
 import { clients } from '../_shared/http.ts';
 
 const PROGRESS_UPSTREAM = Deno.env.get('KI_PROGRESS_UPSTREAM') || '';
+const ACCESS_MODE = Deno.env.get('RECIPE_ASSISTANT_ACCESS_MODE') || 'cloudflare';
 const ACCESS_CLIENT_ID = Deno.env.get('RECIPE_ASSISTANT_ACCESS_CLIENT_ID') || '';
 const ACCESS_CLIENT_SECRET = Deno.env.get('RECIPE_ASSISTANT_ACCESS_CLIENT_SECRET') || '';
+const API_KEY = Deno.env.get('RECIPE_ASSISTANT_API_KEY') || '';
 const allowedOrigins = new Set([
   "http://localhost:3001",
   "http://127.0.0.1:3001",
@@ -62,16 +64,21 @@ Deno.serve(async (request: Request) => {
       || upstream.hostname === '127.0.0.1' || upstream.hostname.endsWith('.local')) {
       return json({ error: 'Progress upstream is not secure' }, 503, headers);
     }
-    if (!ACCESS_CLIENT_ID || !ACCESS_CLIENT_SECRET) return json({ error: 'Progress access is not securely configured' }, 503, headers);
+    if (!['cloudflare', 'caddy'].includes(ACCESS_MODE)) return json({ error: 'Invalid progress access mode' }, 503, headers);
+    if (!API_KEY || (ACCESS_MODE === 'cloudflare' && (!ACCESS_CLIENT_ID || !ACCESS_CLIENT_SECRET))) return json({ error: 'Progress access is not securely configured' }, 503, headers);
 
     if (upstream.search || upstream.hash) return json({ error: 'Progress upstream URL is invalid' }, 503, headers);
     upstream.pathname = `${upstream.pathname.replace(/\/?$/, '/')}${encodeURIComponent(id)}`;
-    const response = await fetch(upstream, {
-      headers: {
+    const backendHeaders: Record<string, string> = {
         Accept: "application/json",
-        ...(ACCESS_CLIENT_ID ? { 'CF-Access-Client-Id': ACCESS_CLIENT_ID } : {}),
-        ...(ACCESS_CLIENT_SECRET ? { 'CF-Access-Client-Secret': ACCESS_CLIENT_SECRET } : {})
-      },
+        Authorization: `Bearer ${API_KEY}`
+    };
+    if (ACCESS_MODE === 'cloudflare') {
+      backendHeaders['CF-Access-Client-Id'] = ACCESS_CLIENT_ID;
+      backendHeaders['CF-Access-Client-Secret'] = ACCESS_CLIENT_SECRET;
+    }
+    const response = await fetch(upstream, {
+      headers: backendHeaders,
       signal: AbortSignal.timeout(5000),
     });
     if (!response.ok) return json({ error: "Mac Studio progress unavailable" }, 503, headers);

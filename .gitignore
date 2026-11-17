@@ -20,5 +20,7 @@ playwright-report/
 test-results/
 coverage/
 .DS_Store
+__pycache__/
+*.py[cod]
 konfiguration.lokal.js
 .supabase-test/

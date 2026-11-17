@@ -3,6 +3,8 @@ import { clients } from '../_shared/http.ts';
 // Adapter für den vorhandenen Mac-Studio-Rezeptdienst. Der upstream wird nur
 // serverseitig als Secret konfiguriert; niemals Ollama/Qdrant direkt im Browser.
 const UPSTREAM = Deno.env.get('RECIPE_ASSISTANT_UPSTREAM') || '';
+const API_KEY = Deno.env.get('RECIPE_ASSISTANT_API_KEY') || '';
+const ACCESS_MODE = Deno.env.get('RECIPE_ASSISTANT_ACCESS_MODE') || 'cloudflare';
 const ACCESS_CLIENT_ID = Deno.env.get('RECIPE_ASSISTANT_ACCESS_CLIENT_ID') || '';
 const ACCESS_CLIENT_SECRET = Deno.env.get('RECIPE_ASSISTANT_ACCESS_CLIENT_SECRET') || '';
 const MAX_BODY_BYTES = 50_000;
@@ -82,18 +84,23 @@ Deno.serve(async request => {
   let upstream: URL;
   try { upstream = new URL(UPSTREAM); }
   catch { return json({ error: 'Mac-Studio-KI-Dienst nicht konfiguriert.' }, 503, origin); }
-  if (!ACCESS_CLIENT_ID || !ACCESS_CLIENT_SECRET) return json({ error: 'HTTPS-Zugang nicht sicher konfiguriert.' }, 503, origin);
+  if (!['cloudflare', 'caddy'].includes(ACCESS_MODE)) return json({ error: 'Ungültiger Zugangstyp für den KI-Dienst.' }, 503, origin);
+  if (!API_KEY || (ACCESS_MODE === 'cloudflare' && (!ACCESS_CLIENT_ID || !ACCESS_CLIENT_SECRET))) return json({ error: 'HTTPS-Zugang nicht sicher konfiguriert.' }, 503, origin);
   if (upstream.protocol !== 'https:' || upstream.username || upstream.password || upstream.hostname === 'localhost'
-    || upstream.hostname === '127.0.0.1' || upstream.hostname.endsWith('.local')) {
+    || upstream.hostname === '127.0.0.1' || upstream.hostname.endsWith('.local') || upstream.search || upstream.hash) {
     return json({ error: 'Mac-Studio-KI-Dienst ist nicht sicher erreichbar.' }, 503, origin);
   }
   try {
-    const response = await fetch(new URL('/v1/chat/completions', upstream), {
-      method: 'POST', headers: {
+    const backendHeaders: Record<string, string> = {
         'Content-Type': 'application/json', Accept: 'application/json',
-        ...(ACCESS_CLIENT_ID ? { 'CF-Access-Client-Id': ACCESS_CLIENT_ID } : {}),
-        ...(ACCESS_CLIENT_SECRET ? { 'CF-Access-Client-Secret': ACCESS_CLIENT_SECRET } : {})
-      }, body: JSON.stringify({ model: 'recipe-assistant', messages, stream: false }),
+        Authorization: `Bearer ${API_KEY}`
+    };
+    if (ACCESS_MODE === 'cloudflare') {
+      backendHeaders['CF-Access-Client-Id'] = ACCESS_CLIENT_ID;
+      backendHeaders['CF-Access-Client-Secret'] = ACCESS_CLIENT_SECRET;
+    }
+    const response = await fetch(new URL('/v1/chat/completions', upstream), {
+      method: 'POST', headers: backendHeaders, body: JSON.stringify({ model: 'recipe-assistant', messages, stream: false }),
       signal: AbortSignal.timeout(90_000)
     });
     if (!response.ok) return json({ error: 'Der Mac-Studio-KI-Dienst konnte nicht antworten.' }, 502, origin);

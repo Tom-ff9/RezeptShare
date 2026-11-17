@@ -6,12 +6,8 @@
     <string>de.franke.recipe-api</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/afranke/ai-stack/recipe-rag/.venv/bin/uvicorn</string>
-        <string>recipe_api:app</string>
-        <string>--host</string>
-        <string>127.0.0.1</string>
-        <string>--port</string>
-        <string>8001</string>
+        <string>/Users/afranke/ai-stack/recipe-rag/.venv/bin/python</string>
+        <string>/Users/afranke/ai-stack/recipe-rag/RezeptShare-KI/RezeptShare/mac-studio/run_recipe_api.py</string>
     </array>
     <key>WorkingDirectory</key>
     <string>/Users/afranke/ai-stack/recipe-rag</string>
@@ -22,15 +18,17 @@
     <key>ThrottleInterval</key>
     <integer>10</integer>
     <key>StandardOutPath</key>
-    <string>/Users/afranke/ai-stack/recipe-rag/logs/recipe-api-loopback.log</string>
+    <string>/dev/null</string>
     <key>StandardErrorPath</key>
-    <string>/Users/afranke/ai-stack/recipe-rag/logs/recipe-api-loopback-error.log</string>
+    <string>/dev/null</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
         <key>PYTHONUNBUFFERED</key>
         <string>1</string>
+        <key>RECIPE_API_TOKEN_FILE</key>
+        <string>/Users/afranke/Library/Application Support/RezeptShare/recipe-api-token</string>
     </dict>
 </dict>
 </plist>

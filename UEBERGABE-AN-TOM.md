@@ -51,35 +51,63 @@ Die übrigen Integrationsmigrationen in `supabase/migrations/` sind nicht pausch
 
 ### KI-Assistent und Mac Studio
 
-`ki-assistent` und optional `ki-fortschritt` verwenden die vorhandene FastAPI-/Ollama-/Qdrant-Architektur. Die Edge Functions prüfen weiterhin zuerst die RezeptShare-Supabase-Sitzung. Danach verwenden sie HTTPS plus zwingende Cloudflare-Access-Service-Token. Tom erhält keinen administrativen Zugang zum Mac Studio.
+`ki-assistent` und optional `ki-fortschritt` verwenden die vorhandene FastAPI-/Ollama-/Qdrant-Architektur. Die Edge Functions prüfen zuerst das RezeptShare-Supabase-JWT und ein aktives Nutzerprofil. Im ausdrücklich konfigurierten Modus `RECIPE_ASSISTANT_ACCESS_MODE=caddy` sprechen sie über HTTPS und senden zusätzlich `Authorization: Bearer …` mit dem separaten Mac-API-Schlüssel. Der Standardmodus `cloudflare` bleibt aus Kompatibilitätsgründen erhalten und verlangt weiterhin zusätzlich die beiden Access-Token-Secrets. FastAPI vergleicht den Schlüssel konstantzeitlich und liest ihn aus einer lokalen Datei mit Eigentümerprüfung und Modus `0600`; Schlüsselwerte stehen nicht in Prozessargumenten, Logs oder im Frontend. Die öffentliche Caddy-Vorlage erlaubt ausschließlich Chat und UUID-Fortschritt; alle anderen Pfade antworten 404.
 
 Vorgesehene Secret-Namen im **Toms Supabase-Projekt**:
 
+**Vorgesehener Hostname:** `https://kronshagen.hopto.org`, noch nicht für die KI-Route eingerichtet. Der Host antwortete beim schreibfreien Test über HTTPS, präsentierte aber ein selbstsigniertes Zertifikat. Die Rezept-KI-Route ist nicht geladen. Für öffentliche Nutzung ist erst eine gültige, vertrauenswürdige TLS-Kette erforderlich.
+
 | Name | Zweck |
 |---|---|
-| `RECIPE_ASSISTANT_UPSTREAM` | HTTPS-Basis-URL des geschützten Tunnel-Hostnamens |
-| `RECIPE_ASSISTANT_ACCESS_CLIENT_ID` | Cloudflare Access Service Token Client ID |
-| `RECIPE_ASSISTANT_ACCESS_CLIENT_SECRET` | Cloudflare Access Service Token Secret |
-| `KI_PROGRESS_UPSTREAM` | HTTPS-URL des FastAPI-Statuspfads; nur falls `ki-fortschritt` genutzt wird |
+| `RECIPE_ASSISTANT_ACCESS_MODE` | Für Caddy explizit `caddy`; der sichere Standard bleibt `cloudflare` |
+| `RECIPE_ASSISTANT_UPSTREAM` | `https://kronshagen.hopto.org` nach Zertifikats- und Routetest |
+| `RECIPE_ASSISTANT_ACCESS_CLIENT_ID` | Nur im beibehaltenen Cloudflare-Modus erforderlich |
+| `RECIPE_ASSISTANT_ACCESS_CLIENT_SECRET` | Nur im beibehaltenen Cloudflare-Modus erforderlich |
+| `RECIPE_ASSISTANT_API_KEY` | Zufälliger Backend-Bearer-Schlüssel, identisch mit dem geschützten lokalen Tokenfile |
+| `KI_PROGRESS_UPSTREAM` | `https://kronshagen.hopto.org/v1/recipe-progress/`; optional für Fortschritt |
 | `OPENAI_API_KEY` | Nur für `rezept-importieren`, serverseitig im Tom-Projekt |
 | `OPENAI_IMPORT_MODEL` | Optionaler Modellname; Standard ist `gpt-4.1-mini` |
 
-Die automatisch von Supabase bereitgestellten Werte `SUPABASE_URL`, `SUPABASE_ANON_KEY` und `SUPABASE_SERVICE_ROLE_KEY` werden nicht als manuelle Secrets aus dem Browser übernommen. Es gibt keinen separaten `RECIPE_ASSISTANT_API_KEY`: die vorhandene FastAPI validiert keinen solchen Bearer-Key; die externe Zugriffsschranke ist Cloudflare Access. Keine Secret-Werte gehören in Git, Browserdateien oder dieses Handbuch.
+Die automatisch von Supabase bereitgestellten Werte `SUPABASE_URL`, `SUPABASE_ANON_KEY` und `SUPABASE_SERVICE_ROLE_KEY` werden nicht als manuelle Secrets aus dem Browser übernommen. `RECIPE_ASSISTANT_API_KEY` wird ausschließlich serverseitig in beiden Mac-Assistenten-Edge-Functions gesetzt; derselbe Wert wird auf dem Mac in `~/Library/Application Support/RezeptShare/recipe-api-token` gespeichert. `mac-studio/manage_api_token.py` legt die Datei mit Verzeichnisrechten `0700` und Dateirechten `0600` an und gibt den Schlüssel nie aus. Ein manuelles `--copy-to-clipboard` kopiert ihn ohne Terminalausgabe zur späteren Eingabe in Supabase. Keine Secret-Werte gehören in Git, Browserdateien oder dieses Handbuch.
 
 ### Tatsächlicher Mac-Status und Sicherheitsblocker
 
-Read-only geprüft:
+Read-only geprüft und lokal angepasst:
 
 - FastAPI-Health antwortete auf `127.0.0.1:8000`; Ollama antwortete mit `qwen3:14b` und `bge-m3`; Qdrant antwortete mit der bestehenden Collection `recipes`. Es wurde nichts neu indiziert.
 - Qdrant-Docker-Ports `6333`/`6334` sind an `127.0.0.1` gebunden und die Restart-Policy lautet `always`. Ollama hörte auf `127.0.0.1:11434`.
-- Eine bestehende LaunchAgent-Datei `de.franke.recipe-api.plist` setzt `RunAtLoad` und `KeepAlive`, startet aber Uvicorn mit `--host 0.0.0.0 --port 8001`. Das ist eine unsichere Bindung, falls diese Agent-Konfiguration geladen wird.
-- Der vorhandene `ki-proxy`-Nginx-Container bindet Port `57001` an alle Interfaces, nimmt `kronshagen.hopto.org` an und routet `/recipe-progress/` ohne Access-Policy zu `host.docker.internal:8001`. Ob Router/Firewall den Port aus dem Internet erreichbar machen, wurde nicht geprüft.
-- Die vorhandene Caddy-Datei bindet `ai.intern.franke` mit internem TLS an `127.0.0.1:3000` (OpenWebUI); sie ist kein abgesicherter FastAPI-Tunnel.
-- `cloudflared` und ein Cloudflare-Credential-Verzeichnis wurden lokal nicht gefunden. Das Dashboard, die Domaininhaberschaft und eine Cloudflare-Zone konnten nicht verifiziert werden.
+- Die aktive FastAPI ist jetzt auf `127.0.0.1:8000` begrenzt. Der bestehende LaunchAgent `de.franke.recipe-api` startet den geprüften Wrapper `mac-studio/run_recipe_api.py` mit `KeepAlive`, `RunAtLoad`, ohne Access-Logs und mit begrenzter Rotation privater Logs. Die bisherige plist wurde unter `~/Library/LaunchAgents/de.franke.recipe-api.plist.before-cloudflare-auth.20261117` gesichert. Der alte Dienst auf `0.0.0.0:8001` wurde gestoppt; Port 8001 ist frei. Eine zusätzliche zuvor manuell gestartete API auf 8000 wurde kontrolliert beendet. Nach dem neuen Start meldete `launchctl` `running`, `lsof` zeigte ausschließlich `127.0.0.1:8000`, und ein kontrollierter `kickstart -k` plus Healthcheck war erfolgreich.
+- Das zufällige Mac-API-Bearer liegt unter `~/Library/Application Support/RezeptShare/recipe-api-token` mit Eigentümerin `afranke`, Dateimodus `0600`, Verzeichnis `0700`. Der Wert wurde weder ausgegeben noch in die Zwischenablage kopiert. Noch wurde er nicht als Supabase-Secret gesetzt.
+- Die laufende API-Datei `recipe_api.py` wurde lokal um Bearer-Prüfung für Chat, Modelle, Fortschritt und Health ergänzt; `/docs`, `/redoc` und `/openapi.json` sind deaktiviert. Die alte API-Datei ist unter `recipe_api.py.before-cloudflare-auth.bak` gesichert. Ohne/wrong Bearer ergaben Live-Requests HTTP 401, mit gültigem Schlüssel HTTP 200.
+- Der vorhandene `ki-proxy`-Nginx-Container bindet Port `57001` an alle Interfaces. Er wurde nicht geändert oder gestoppt; sein früherer API-Upstream auf Port 8001 ist jetzt geschlossen. Ein unauthentifizierter lokaler Aufruf des Progresspfads über diesen Legacy-Proxy ergab HTTP 502. Ein read-only HTTPS-Aufruf an `kronshagen.hopto.org` lieferte eine bestehende HTTP-200-Antwort, aber mit selbstsigniertem Zertifikat. Auch der vorhandene OpenWebUI-Port 3000 ist auf alle Interfaces veröffentlicht; dies ist ein separater Dienst und wurde nicht verändert.
+- Die aktive Caddy-Datei `/Users/afranke/ai-stack/caddy/Caddyfile` bindet `ai.intern.franke` mit `tls internal` an OpenWebUI `127.0.0.1:3000`. Caddy läuft auf `*:443`; die bestehende OpenWebUI-Site wurde nicht geändert.
+- `kronshagen.hopto.org` löste bei der Prüfung auf und antwortete auf Port 443 mit HTTP 200, aber das Zertifikat für diesen Host war selbstsigniert. Die öffentliche Gegenstelle/Routerweiterleitung ist damit bereits belegt, jedoch nicht sicher für einen neuen KI-Pfad. Die macOS-Firewall war deaktiviert. Keine DNS-, Firewall- oder Routereinstellung wurde geändert.
+- Ein vorhandener Docker/Nginx-Proxy veröffentlicht Port `57001` an alle Interfaces; ebenso ist OpenWebUI `3000` separat breit gebunden. Diese Altpfade blieben unangetastet. Vor einer Änderung der öffentlichen Route müssen Portweiterleitung und Eigentümer der bestehenden HTTPS-Antwort geklärt werden.
 
-[`mac-studio/de.franke.recipe-api.loopback.plist.example`](mac-studio/de.franke.recipe-api.loopback.plist.example) ist eine **nicht installierte** Loopback-Vorlage. [`npm run health:mac-studio`](package.json) prüft FastAPI, Modelle und Qdrant, ausschließlich über Loopback, und meldet fehlende Dienste verständlich. Vor dem Laden der Vorlage muss der bisherige ungeschützte 57001-Progresspfad beendet oder gleichwertig abgesichert werden. Ich habe keine LaunchAgent-, Docker-, Caddy-, Nginx-, Firewall-, DNS- oder Tunnelkonfiguration geändert.
+[`mac-studio/de.franke.recipe-api.loopback.plist.example`](mac-studio/de.franke.recipe-api.loopback.plist.example) ist jetzt zusätzlich als aktuelle LaunchAgent-Konfiguration installiert. `mac-studio/run_recipe_api.py` verhindert doppelte Starts, prüft das Token vor dem Start und begrenzt Logs auf 1 MiB mit drei Rotationen. [`npm run health:mac-studio`](package.json) prüft FastAPI mit Bearer-Token, Ollama und Qdrant ausschließlich über Loopback. Die `recipes`-Collection hatte vor und nach einem echten lokalen RAG-Smoke-Test weiterhin 3.492.886 Punkte; es wurden keine Punkte geladen, geändert oder neu indiziert.
 
-Cloudflare Tunnel/Access benötigt einen aktiven Cloudflare-Account und eine kontrollierte Domain/Zone (Full Setup oder geeigneter Partial-CNAME-Aufbau), einen geschützten Public Hostname, eine `Service Auth`-Policy und einen Tunnel-Connector auf dem Mac Studio. Cloudflare empfiehlt, die Access-App vor der Tunnelroute anzulegen; der Tunnel kann Access-Tokens am Origin prüfen ([Self-hosted App/Tunnel](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public/)). Ohne kontrollierte Domain kann dieser Hostname nicht sicher eingerichtet werden. Es wurde nichts extern aktiviert.
+Der lokale Kandidat liegt in [`mac-studio/Caddyfile.rezeptshare.example`](mac-studio/Caddyfile.rezeptshare.example). Er beschränkt Routen auf `POST /v1/chat/completions` und `GET /v1/recipe-progress/{UUID}`, begrenzt den Request auf 50 KB, setzt Antwort-Timeouts und antwortet für alle übrigen Pfade/Methoden mit 404. Er wurde nicht in die aktive Caddyfile übernommen oder neu geladen. Caddy besitzt kein Rate-Limit-Modul; für KI-Nutzer gibt es noch kein dauerhaftes per-user Rate Limit. Der Startschutz der FastAPI wurde über `mac-studio/secure_api_patch.py` vorbereitet und angewandt.
+
+### Noch erforderliche Freigaben für Caddy/DynDNS
+
+1. Im Router/No-IP-Dashboard den DynDNS-Hostname und die aktuelle Portweiterleitung prüfen. Öffentliche HTTPS-Antwort und selbstsigniertes Zertifikat zeigen, dass bereits ein Dienst über den Namen erreichbar ist; Ziel und Zuständigkeit sind vor dem Austausch zu ermitteln.
+2. Gültige öffentliche Zertifikatskette für `kronshagen.hopto.org` herstellen und extern mit Zertifikatsprüfung bestätigen. Caddy Automatic HTTPS benötigt geeignete DNS- und eingehende ACME-Erreichbarkeit (typisch 80/443). Noch keine Portfreigabe/Firewallregel wurde erstellt.
+3. Das vorhandene Caddyfile unverändert sichern und den geprüften KI-Block nur nach expliziter Freigabe zusammenführen. Caddy-Konfiguration validieren, OpenWebUI-Rückweg testen, danach kontrolliert reloaden. Der Block routet nur die zwei dokumentierten Endpunkte; FastAPI-Bearer bleibt zwingend.
+4. Vor öffentlicher Nutzung ein nachvollziehbares Rate Limit hinzufügen. Es gibt aktuell kein Caddy-Rate-Limit-Modul und kein persistentes KI-Limit pro Benutzer.
+5. Erst nach externer Sicherheitsprüfung separat freigeben, die HTTPS-Upstream-Secrets in Toms Supabase-Projekt zu setzen und die Functions zu deployen. Caddy-Modus: `RECIPE_ASSISTANT_ACCESS_MODE=caddy`, `RECIPE_ASSISTANT_UPSTREAM=https://kronshagen.hopto.org`, `RECIPE_ASSISTANT_API_KEY`; optional `KI_PROGRESS_UPSTREAM=https://kronshagen.hopto.org/v1/recipe-progress/`. Die bestehende Supabase-JWT- und Profilprüfung bleibt erforderlich.
+
+### Localer API-Start, Healthcheck und Fehlerfall
+
+Nach Einrichtung des lokalen Tokenfiles ist der Mac-Healthcheck:
+
+```bash
+cd /Users/afranke/ai-stack/recipe-rag/RezeptShare-KI/RezeptShare
+npm run health:mac-studio
+```
+
+Der Dienst ist nur für `127.0.0.1:8000` vorgesehen. FastAPI antwortet ohne/wrong Bearer mit 401 und ohne sicher gesetztes Tokenfile geschlossen mit 503. Die Edge Functions melden einen Upstream-Ausfall als generische 502/503; sie verwenden keine Ausweich- oder Mockantwort. Bei Mac-Ausfall zuerst `launchctl print gui/$(id -u)/de.franke.recipe-api`, danach den lokalen Healthcheck und die begrenzte Datei `~/Library/Logs/RezeptShare/recipe-api.log` prüfen. Es werden weder Qdrant-Indizes neu aufgebaut noch Rezeptdaten verändert.
+
+Test-/Rotationsablauf: `python3 mac-studio/manage_api_token.py` legt den ersten Schlüssel lokal an; für Supabase muss er später kontrolliert kopiert und dort als `RECIPE_ASSISTANT_API_KEY` in **beiden** Edge Functions gesetzt werden. Beim Rotieren im Wartungsfenster lokales Tokenfile und Supabase Secret aktualisieren, beide Functions kontrolliert deployen und mit einem gültigen Supabase-JWT plus API-Bearer prüfen. Zwischenablage anschließend leeren. Hier wurden keine Supabase-Secrets geändert.
 
 ### API-Kosten und Nutzung
 
@@ -95,7 +123,7 @@ Das 30-US-Dollar-Monatsbudget ließ sich nicht einsehen: es gab keinen Zugriff a
 2. **Zielschema auditieren:** Im Supabase-Dashboard des richtigen Projekts die Projekt-ID `gcncxupedhwieybpiupi` und URL bestätigen. `migration/kochbuchimport-audit-readonly.sql` ausführen und nur Schema-Metadaten (keine Nutzer-/Rezeptdaten) zur Kompatibilitätsprüfung verwenden. Wenn Tom das SQL nicht direkt ausführt, benötigt ein CLI-Operator gezielte `database_read`-Berechtigung.
 3. **Backup/Bestandsschutz:** PITR/Backupstatus und Wiederherstellungspfad bestätigen; Schema, Policies, Storage-Bucket-Metadaten und Funktionsversionen sichern. Bestehende Tabellen/IDs nicht neu anlegen oder importieren. Die drei strukturellen Migrationsdateien nicht blind anwenden; bei Rollenwerten/FKs zuerst einen eigenen kompatiblen Plan erstellen.
 4. **Migration freigeben und anwenden:** Nach Schemaabgleich nur die exakt benötigten additiven Schritte festlegen. Falls die Importobjekte fehlen und `private.konto_aktiv(uuid)` vorhanden ist, ist `migration/kochbuchimport-produktiv.sql` der Importkandidat. Erst nach eigener Freigabe anwenden; danach RLS, Grants, Tabellen und Funktion read-only verifizieren.
-5. **Mac-/Cloudflare-Zugang durch Projektinhaber vorbereiten:** Cloudflare-Domain/Zone und Account prüfen, Service-Auth-App/Policy vor Tunnelroute anlegen, Tunnel nur auf FastAPI loopback routen. Vorher den vorhandenen öffentlichen Nginx-Pfad/Port `57001` und die `0.0.0.0:8001`-Startkonfiguration sicher entfernen oder absichern. Diese lokalen/externalen Schritte brauchen die Zustimmung der Mac-/Domaininhaberin; Tom braucht dafür keinen Mac-Adminzugang.
+5. **Caddy/DynDNS-Route sicher freigeben:** FastAPI ist auf `127.0.0.1:8000` abgesichert, der Caddy-Entwurf ist vorbereitet. Vor Veröffentlichung müssen der vorhandene Listener `*:57001`, öffentliche HTTPS-Antwort mit selbstsigniertem Zertifikat, Routerweiterleitung und gültige TLS-Kette aufgeklärt werden. Eine Freigabe für Caddy-Reload/Route und mögliche Routerregeln ist noch erforderlich. Tom braucht keinen Mac-Adminzugang.
 6. **Secrets im Tom-Projekt konfigurieren:** Die Tabelle oben abarbeiten. `OPENAI_API_KEY` nur durch die berechtigte Inhaberin des OpenAI-Projekts im Supabase-Dashboard als Edge-Function-Secret eintragen. Niemals im Chat, Browser oder Git.
 7. **OpenAI-Hard-Limit verifizieren:** `30 USD` und **Enforce a hard limit** im richtigen OpenAI API-Projekt kontrollieren. Keine billing secret/API-key values teilen.
 8. **Functions einzeln bereitstellen:** Nach Merge, Schemafreigabe und Backendbereitschaft nur benötigte Funktionen deployen: erst vorhandene Rezept-/Gruppenfunktionen gemäß Schemaaudit; dann `rezept-importieren`; danach `ki-assistent`; optional `ki-fortschritt`. Für das Importpaket:
@@ -122,7 +150,7 @@ Das 30-US-Dollar-Monatsbudget ließ sich nicht einsehen: es gab keinen Zugriff a
 ## Noch nicht erledigt / nicht freigegeben
 
 - Toms DB-Schema: Audit wegen `403`/fehlender `database_read`-Berechtigung nicht gelaufen.
-- Cloudflare-Account/Domain, Access-Policy und Tunnel: nicht verifiziert oder aktiviert.
+- Caddy-Rezept-KI-Route: Entwurf vorhanden, nicht aktiv. `kronshagen.hopto.org` antwortet derzeit mit einem nicht vertrauenswürdigen selbstsignierten Zertifikat.
 - Bestehende Mac-LaunchAgent-/Nginx-Konfiguration: nicht geändert; aktueller unsicherer Bindungs-/Proxybefund bleibt offen.
 - OpenAI-Hard-Limit: nicht verifiziert.
 - Produktivmigrationen, Edge-Deployments, Secrets und Pages-Veröffentlichung: nicht ausgeführt.
