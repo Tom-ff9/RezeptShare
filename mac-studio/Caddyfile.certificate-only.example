@@ -1,0 +1,14 @@
+# Zertifikatsvorbereitung ohne Freigabe der KI-Route.
+# Erst nach ausdrücklicher Freigabe in die aktive Caddyfile aufnehmen.
+kronshagen.hopto.org:8443 {
+	tls {
+		issuer acme https://acme-v02.api.letsencrypt.org/directory {
+			disable_tlsalpn_challenge
+		}
+	}
+
+	# Für jede HTTPS-Anfrage: keine Weiterleitung und keine Backendverbindung.
+	handle {
+		respond "RezeptShare-KI-Endpunkt ist noch gesperrt." 503
+	}
+}
