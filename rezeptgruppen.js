@@ -133,7 +133,7 @@ async function rezeptZuordnungVorbereiten(rezept) {
     if (rezept.istFreigabe && !aktiverBenutzer) {
         const login = elementErstellen('button', 'sekundaer-button', 'Gruppen zuordnen'); login.type = 'button';
         login.addEventListener('click', () => {
-            zuordnungNachAnmeldung = true; rezeptDetailDialog.close(); authFormularOeffnen('anmelden');
+            zuordnungNachAnmeldung = true; rezeptDetailDialogSchliessen(); authFormularOeffnen('anmelden');
         });
         slot.append(login); return;
     }
@@ -155,7 +155,7 @@ async function rezeptZuordnungVorbereiten(rezept) {
             uebernehmen: async selected => {
                 const removed = rows.filter(r => !selected.includes(Number(r.gruppen_id)));
                 const signature = JSON.stringify(selected.slice().sort());
-                if (!pending || pending.signature !== signature) pending = {signature, id: crypto.randomUUID()};
+                if (!pending || pending.signature !== signature) pending = {signature, id: window.rezeptUuid.v4()};
                 if (removed.length) {
                     const names = removed.map(r => gruppen.find(g => g.id === Number(r.gruppen_id))?.name).join(', ');
                     const last = rows.length === removed.length && !selected.length;
@@ -179,7 +179,7 @@ async function rezeptZuordnungVorbereiten(rezept) {
                             const raw = datenAusErgebnis(await supabaseClient.from('rezepte').select('*,ersteller:profile!rezepte_erstellt_von_fkey(id,anzeigename)').eq('id', replacement.id).single());
                             await rezeptDetailsAnzeigen(await rezeptFuerBrowser(raw));
                             detailMeldung('Rezept den ausgewählten Gruppen zugeordnet.');
-                        } else { rezeptDetailDialog.close(); document.querySelector('#gruppen-status').textContent = 'Rezeptkopien entfernt.'; }
+                        } else { rezeptDetailDialogSchliessen(); document.querySelector('#gruppen-status').textContent = 'Rezeptkopien entfernt.'; }
                     }
                 } catch { detailMeldung('Rezept den ausgewählten Gruppen zugeordnet. Bitte lade die Ansicht neu.'); }
             }
@@ -202,7 +202,7 @@ async function geteiltesRezeptOeffnen() {
         rezeptDetailDialog.querySelector('.dialog-aktionen').hidden = true;
         document.querySelector('#rezept-aktions-meldung').hidden = true;
         document.querySelector('#rezept-link-ausgabe').replaceChildren();
-        if (!rezeptDetailDialog.open) rezeptDetailDialog.showModal();
+        rezeptDetailOeffnen();
     }
 }
 async function rezeptTeilen() {

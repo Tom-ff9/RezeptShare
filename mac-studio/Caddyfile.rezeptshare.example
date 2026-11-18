@@ -1,0 +1,35 @@
+# Erst nach Prüfung/Freigabe mit der vorhandenen Caddyfile zusammenführen.
+# Keine zweite Instanz starten. Bei Aktivierung erhält Caddy das öffentliche TLS.
+kronshagen.hopto.org:8443 {
+	@chat {
+		method POST
+		path /v1/chat/completions
+	}
+	handle @chat {
+		request_body {
+			max_size 50KB
+		}
+		reverse_proxy 127.0.0.1:8000 {
+			transport http {
+				response_header_timeout 80s
+			}
+		}
+	}
+
+	@progress {
+		method GET
+		path_regexp progress ^/v1/recipe-progress/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+	}
+	handle @progress {
+		reverse_proxy 127.0.0.1:8000 {
+			transport http {
+				response_header_timeout 4s
+			}
+		}
+	}
+
+	# Health, Modelle, Dokumentation und alle anderen Pfade bleiben gesperrt.
+	handle {
+		respond "Not found" 404
+	}
+}

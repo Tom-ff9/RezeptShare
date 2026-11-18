@@ -1,0 +1,558 @@
+[
+  {
+    "id": "reine-handschrift",
+    "seiten": 1,
+    "antwort": {
+      "hinweise": [],
+      "rezepte": [
+        {
+          "original": {
+            "name": "Omas Pfannkuchen",
+            "zutaten": "150 g Mehl\n2 Eier\n250 ml Milch",
+            "zubereitung": "1. Alles verrühren.\n2. In der Pfanne ausbacken.",
+            "naehrwerte": {
+              "kalorien": null,
+              "protein": null,
+              "kohlenhydrate": null,
+              "fett": null,
+              "quelle": ""
+            }
+          },
+          "ueberarbeitet": {
+            "name": "Omas Pfannkuchen",
+            "zutaten": "150 g Mehl\n2 Eier\n250 ml Milch",
+            "zubereitung": "1. Alles verrühren.\n2. In der Pfanne ausbacken.",
+            "naehrwerte": {
+              "kalorien": null,
+              "protein": null,
+              "kohlenhydrate": null,
+              "fett": null,
+              "quelle": ""
+            }
+          },
+          "quellen": [
+            {
+              "seite": 1,
+              "stelle": "Rezepttext"
+            }
+          ],
+          "zuordnungUnsicher": false,
+          "unsicherheiten": [
+            "Randnotiz [unleserlich]; keine zusätzliche Menge erkannt."
+          ],
+          "notizen": "",
+          "aenderungen": [],
+          "fotos": []
+        }
+      ]
+    },
+    "erwartet": [
+      {
+        "name": "Omas Pfannkuchen",
+        "zutaten": [
+          "150 g Mehl",
+          "2 Eier",
+          "250 ml Milch"
+        ],
+        "schritte": [
+          "Alles verrühren.",
+          "In der Pfanne ausbacken."
+        ],
+        "unsicherheiten": [
+          "Randnotiz [unleserlich]; keine zusätzliche Menge erkannt."
+        ],
+        "aenderungen": []
+      }
+    ]
+  },
+  {
+    "id": "druck-mit-handschrift",
+    "seiten": 1,
+    "antwort": {
+      "hinweise": [],
+      "rezepte": [
+        {
+          "original": {
+            "name": "Zimtkuchen",
+            "zutaten": "200 g Mehl\n100 g Zucker\n200 ml Milch\n1 Ei",
+            "zubereitung": "1. Verrühren.\n2. 20 Minuten backen.",
+            "naehrwerte": {
+              "kalorien": null,
+              "protein": null,
+              "kohlenhydrate": null,
+              "fett": null,
+              "quelle": ""
+            }
+          },
+          "ueberarbeitet": {
+            "name": "Zimtkuchen",
+            "zutaten": "200 g Mehl\n80 g Zucker\n1 Ei",
+            "zubereitung": "1. Verrühren.\n2. 20 Minuten backen.",
+            "naehrwerte": {
+              "kalorien": null,
+              "protein": null,
+              "kohlenhydrate": null,
+              "fett": null,
+              "quelle": ""
+            }
+          },
+          "quellen": [
+            {
+              "seite": 1,
+              "stelle": "Rezepttext"
+            }
+          ],
+          "zuordnungUnsicher": false,
+          "unsicherheiten": [
+            "Neue Backzeit könnte 30 oder 80 heißen; Originalzeit nicht verändert."
+          ],
+          "notizen": "Handschrift am Rand: Mit Zimt servieren.",
+          "aenderungen": [
+            {
+              "feld": "Zucker",
+              "vorher": "100 g",
+              "nachher": "80 g",
+              "hinweis": "Menge durchgestrichen und handschriftlich ersetzt.",
+              "unsicher": false
+            },
+            {
+              "feld": "Milch",
+              "vorher": "200 ml Milch",
+              "nachher": "",
+              "hinweis": "Zutat durchgestrichen.",
+              "unsicher": false
+            }
+          ],
+          "fotos": []
+        }
+      ]
+    },
+    "erwartet": [
+      {
+        "original": {
+          "name": "Zimtkuchen",
+          "zutaten": [
+            "200 g Mehl",
+            "100 g Zucker",
+            "200 ml Milch",
+            "1 Ei"
+          ],
+          "schritte": [
+            "Verrühren.",
+            "20 Minuten backen."
+          ]
+        },
+        "ueberarbeitet": {
+          "name": "Zimtkuchen",
+          "zutaten": [
+            "200 g Mehl",
+            "80 g Zucker",
+            "1 Ei"
+          ],
+          "schritte": [
+            "Verrühren.",
+            "20 Minuten backen."
+          ]
+        },
+        "aenderungen": [
+          {
+            "feld": "Zucker",
+            "vorher": "100 g",
+            "nachher": "80 g",
+            "hinweis": "Menge durchgestrichen und handschriftlich ersetzt.",
+            "unsicher": false
+          },
+          {
+            "feld": "Milch",
+            "vorher": "200 ml Milch",
+            "nachher": "",
+            "hinweis": "Zutat durchgestrichen.",
+            "unsicher": false
+          }
+        ],
+        "unsicherheiten": [
+          "Neue Backzeit könnte 30 oder 80 heißen; Originalzeit nicht verändert."
+        ],
+        "notizenEnthalten": [
+          "Mit Zimt servieren."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "zwei-rezepte-pro-seite",
+    "seiten": 1,
+    "antwort": {
+      "hinweise": [],
+      "rezepte": [
+        {
+          "original": {
+            "name": "Tomatensalat",
+            "zutaten": "2 Tomaten\n1 EL Öl",
+            "zubereitung": "1. Tomaten schneiden.\n2. Mit Öl vermischen.",
+            "naehrwerte": {
+              "kalorien": null,
+              "protein": null,
+              "kohlenhydrate": null,
+              "fett": null,
+              "quelle": ""
+            }
+          },
+          "ueberarbeitet": {
+            "name": "Tomatensalat",
+            "zutaten": "2 Tomaten\n1 EL Öl",
+            "zubereitung": "1. Tomaten schneiden.\n2. Mit Öl vermischen.",
+            "naehrwerte": {
+              "kalorien": null,
+              "protein": null,
+              "kohlenhydrate": null,
+              "fett": null,
+              "quelle": ""
+            }
+          },
+          "quellen": [
+            {
+              "seite": 1,
+              "stelle": "Rezepttext"
+            }
+          ],
+          "zuordnungUnsicher": false,
+          "unsicherheiten": [],
+          "notizen": "",
+          "aenderungen": [],
+          "fotos": []
+        },
+        {
+          "original": {
+            "name": "Reis",
+            "zutaten": "100 g Reis\n200 ml Wasser",
+            "zubereitung": "1. Reis im Wasser garen.",
+            "naehrwerte": {
+              "kalorien": null,
+              "protein": null,
+              "kohlenhydrate": null,
+              "fett": null,
+              "quelle": ""
+            }
+          },
+          "ueberarbeitet": {
+            "name": "Reis",
+            "zutaten": "100 g Reis\n200 ml Wasser",
+            "zubereitung": "1. Reis im Wasser garen.",
+            "naehrwerte": {
+              "kalorien": null,
+              "protein": null,
+              "kohlenhydrate": null,
+              "fett": null,
+              "quelle": ""
+            }
+          },
+          "quellen": [
+            {
+              "seite": 1,
+              "stelle": "Rezepttext"
+            }
+          ],
+          "zuordnungUnsicher": false,
+          "unsicherheiten": [],
+          "notizen": "",
+          "aenderungen": [],
+          "fotos": []
+        }
+      ]
+    },
+    "erwartet": [
+      {
+        "name": "Tomatensalat",
+        "zutaten": [
+          "2 Tomaten",
+          "1 EL Öl"
+        ],
+        "schritte": [
+          "Tomaten schneiden.",
+          "Mit Öl vermischen."
+        ]
+      },
+      {
+        "name": "Reis",
+        "zutaten": [
+          "100 g Reis",
+          "200 ml Wasser"
+        ],
+        "schritte": [
+          "Reis im Wasser garen."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "eindeutige-fortsetzung",
+    "seiten": 2,
+    "antwort": {
+      "hinweise": [],
+      "rezepte": [
+        {
+          "original": {
+            "name": "Fortsetzungssuppe",
+            "zutaten": "400 g Kartoffeln\n600 ml Brühe",
+            "zubereitung": "1. Kartoffeln schälen.\n2. In Brühe 20 Minuten garen.\n3. Stückig servieren.",
+            "naehrwerte": {
+              "kalorien": null,
+              "protein": null,
+              "kohlenhydrate": null,
+              "fett": null,
+              "quelle": ""
+            }
+          },
+          "ueberarbeitet": {
+            "name": "Fortsetzungssuppe",
+            "zutaten": "400 g Kartoffeln\n600 ml Brühe",
+            "zubereitung": "1. Kartoffeln schälen.\n2. In Brühe 20 Minuten garen.\n3. Stückig servieren.",
+            "naehrwerte": {
+              "kalorien": null,
+              "protein": null,
+              "kohlenhydrate": null,
+              "fett": null,
+              "quelle": ""
+            }
+          },
+          "quellen": [
+            {
+              "seite": 1,
+              "stelle": "Rezepttext"
+            },
+            {
+              "seite": 2,
+              "stelle": "Rezepttext"
+            }
+          ],
+          "zuordnungUnsicher": false,
+          "unsicherheiten": [],
+          "notizen": "",
+          "aenderungen": [],
+          "fotos": []
+        }
+      ]
+    },
+    "erwartet": [
+      {
+        "name": "Fortsetzungssuppe",
+        "zutaten": [
+          "400 g Kartoffeln",
+          "600 ml Brühe"
+        ],
+        "schritte": [
+          "Kartoffeln schälen.",
+          "In Brühe 20 Minuten garen.",
+          "Stückig servieren."
+        ],
+        "quellseiten": [
+          1,
+          2
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unsichere-fortsetzung",
+    "seiten": 2,
+    "antwort": {
+      "hinweise": [],
+      "rezepte": [
+        {
+          "original": {
+            "name": "Grundrezept",
+            "zutaten": "100 g Mehl",
+            "zubereitung": "1. Teig verrühren.",
+            "naehrwerte": {
+              "kalorien": null,
+              "protein": null,
+              "kohlenhydrate": null,
+              "fett": null,
+              "quelle": ""
+            }
+          },
+          "ueberarbeitet": {
+            "name": "Grundrezept",
+            "zutaten": "100 g Mehl",
+            "zubereitung": "1. Teig verrühren.",
+            "naehrwerte": {
+              "kalorien": null,
+              "protein": null,
+              "kohlenhydrate": null,
+              "fett": null,
+              "quelle": ""
+            }
+          },
+          "quellen": [
+            {
+              "seite": 1,
+              "stelle": "Rezepttext"
+            }
+          ],
+          "zuordnungUnsicher": true,
+          "unsicherheiten": [
+            "Seite 2 könnte zu einem anderen Rezept gehören."
+          ],
+          "notizen": "",
+          "aenderungen": [],
+          "fotos": []
+        },
+        {
+          "original": {
+            "name": "Nicht zugeordnete Fortsetzung",
+            "zutaten": "",
+            "zubereitung": "1. 10 Minuten ruhen lassen.",
+            "naehrwerte": {
+              "kalorien": null,
+              "protein": null,
+              "kohlenhydrate": null,
+              "fett": null,
+              "quelle": ""
+            }
+          },
+          "ueberarbeitet": {
+            "name": "Nicht zugeordnete Fortsetzung",
+            "zutaten": "",
+            "zubereitung": "1. 10 Minuten ruhen lassen.",
+            "naehrwerte": {
+              "kalorien": null,
+              "protein": null,
+              "kohlenhydrate": null,
+              "fett": null,
+              "quelle": ""
+            }
+          },
+          "quellen": [
+            {
+              "seite": 2,
+              "stelle": "Rezepttext"
+            }
+          ],
+          "zuordnungUnsicher": true,
+          "unsicherheiten": [
+            "Seite 2 könnte zu einem anderen Rezept gehören."
+          ],
+          "notizen": "",
+          "aenderungen": [],
+          "fotos": []
+        }
+      ]
+    },
+    "erwartet": [
+      {
+        "name": "Grundrezept",
+        "zutaten": [
+          "100 g Mehl"
+        ],
+        "schritte": [
+          "Teig verrühren."
+        ],
+        "zuordnungUnsicher": true,
+        "unsicherheiten": [
+          "Seite 2 könnte zu einem anderen Rezept gehören."
+        ]
+      },
+      {
+        "name": "Nicht zugeordnete Fortsetzung",
+        "zutaten": [],
+        "schritte": [
+          "10 Minuten ruhen lassen."
+        ],
+        "quellseiten": [
+          2
+        ],
+        "zuordnungUnsicher": true,
+        "unsicherheiten": [
+          "Seite 2 könnte zu einem anderen Rezept gehören."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "gerichtsfoto-auf-folgeseite",
+    "seiten": 2,
+    "antwort": {
+      "hinweise": [],
+      "rezepte": [
+        {
+          "original": {
+            "name": "Suppe mit Foto",
+            "zutaten": "1 Möhre\n300 ml Brühe",
+            "zubereitung": "1. Möhre in Brühe garen.",
+            "naehrwerte": {
+              "kalorien": null,
+              "protein": null,
+              "kohlenhydrate": null,
+              "fett": null,
+              "quelle": ""
+            }
+          },
+          "ueberarbeitet": {
+            "name": "Suppe mit Foto",
+            "zutaten": "1 Möhre\n300 ml Brühe",
+            "zubereitung": "1. Möhre in Brühe garen.",
+            "naehrwerte": {
+              "kalorien": null,
+              "protein": null,
+              "kohlenhydrate": null,
+              "fett": null,
+              "quelle": ""
+            }
+          },
+          "quellen": [
+            {
+              "seite": 1,
+              "stelle": "Rezepttext"
+            }
+          ],
+          "zuordnungUnsicher": false,
+          "unsicherheiten": [],
+          "notizen": "",
+          "aenderungen": [],
+          "fotos": [
+            {
+              "seite": 2,
+              "x": 0.15,
+              "y": 0.2,
+              "breite": 0.5,
+              "hoehe": 0.4,
+              "unsicher": true
+            }
+          ]
+        }
+      ]
+    },
+    "erwartet": [
+      {
+        "name": "Suppe mit Foto",
+        "zutaten": [
+          "1 Möhre",
+          "300 ml Brühe"
+        ],
+        "schritte": [
+          "Möhre in Brühe garen."
+        ],
+        "fotos": [
+          {
+            "seite": 2,
+            "x": 0.15,
+            "y": 0.2,
+            "breite": 0.5,
+            "hoehe": 0.4,
+            "unsicher": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "kein-rezept",
+    "seiten": 1,
+    "antwort": {
+      "hinweise": [],
+      "rezepte": []
+    },
+    "erwartet": []
+  }
+]

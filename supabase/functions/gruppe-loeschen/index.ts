@@ -4,8 +4,9 @@ Deno.serve(async req => {
     if (req.method !== 'POST') return antwort({ error: 'Nur POST ist erlaubt.' }, 405);
     try {
         const { user, admin } = clients(req);
-        const { user: person } = pruefen(await user.auth.getUser());
-        if (!person) return antwort({ error: 'Bitte melde dich an.' }, 401);
+        const authentication = await user.auth.getUser();
+        const person = authentication.data?.user;
+        if (authentication.error || !person) return antwort({ error: 'Bitte melde dich an.' }, 401);
         const { gruppen_id, bestaetigt } = await req.json();
         if (!Number.isSafeInteger(gruppen_id) || gruppen_id <= 0 || bestaetigt !== true) throw new Error('Bitte bestätige die Gruppenlöschung.');
         const args = { p_person: person.id, p_gruppe: gruppen_id };

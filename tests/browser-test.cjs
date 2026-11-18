@@ -52,9 +52,11 @@ function mockInstall() {
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.route('https://**/*',route=>route.request().url().includes('cdn.jsdelivr.net')
         ? route.fulfill({contentType:'application/javascript',body:`(${mockInstall.toString()})();`}) : route.abort());
-    await page.goto(process.env.TEST_URL || 'http://127.0.0.1:3188');
+    await page.route('**/konfiguration.js', route => route.fulfill({contentType:'application/javascript',body: `window.REZEPT_SHARE_KONFIGURATION={supabaseUrl:'https://isoliert.invalid',supabasePublishableKey:'mock-public'};`}));
+        await page.goto(process.env.TEST_URL || 'http://127.0.0.1:3188');
     await page.getByRole('button',{name:'später festlegen'}).click();
     await page.locator('#app-bereich').waitFor({state:'visible'});
+    assert.equal(await page.evaluate(()=>typeof window.rezeptTextAufteilen),'function','Die neue Anzeigeformatierung muss über den Testserver geladen werden.');
     assert.equal(await page.evaluate(()=>mockState.profile.profilbild_festgelegt),true);
     await page.locator('#profil-button').click();
     await page.getByRole('button',{name:'Accounteinstellungen',exact:true}).click();
@@ -108,6 +110,68 @@ function mockInstall() {
     await page.getByRole('button',{name:'Gemüsesuppe öffnen',exact:true}).waitFor();
     assert.equal(await page.locator('.rezept-karte').count(),2);
     assert.equal(await page.locator('[data-ansicht="hinzufuegen"]').isVisible(),true);
+    await waehleGruppen([7]);
+    await page.locator('#rezept-suche').fill('Gemüsesuppe');
+    await page.evaluate(()=>{document.body.style.minHeight='1500px';window.scrollTo(0,240);});
+    await page.getByRole('button',{name:'Gemüsesuppe öffnen',exact:true}).scrollIntoViewIfNeeded();
+    const overviewScroll=await page.evaluate(()=>window.scrollY);
+    const overviewSort=await page.evaluate(()=>rezeptSortierung);
+    const strukturierterText = 'Zutaten:\n- 500 g Rindfleisch\n- 30 g Öl oder Pflanzenfett\n- Salz\n\nZubereitung:\n1. Fleisch abspülen und würfeln.\n2) Fleisch anbraten.\n\nNotizen:\nHandschriftlich: länger schmoren.';
+    await page.evaluate(text=>{mockState.recipe.text=text;rezepte.find(recipe=>recipe.id===9).text=text;mockState.hidden=[{aenderung_id:'mark-1'}];window.__documentMarker='same-document';},strukturierterText);
+    await page.getByRole('button',{name:'Gemüsesuppe öffnen',exact:true}).click();
+    await page.locator('#rezept-detail-inhalt .rezept-text').waitFor();
+    const renderedRecipeText=await page.locator('#rezept-detail-inhalt .rezept-text').getAttribute('class');
+    assert.match(renderedRecipeText,/rezept-text-strukturiert/,`Erwartete strukturierte Darstellung; Klasse war ${renderedRecipeText}`);
+    assert.deepEqual(await page.locator('.rezept-zutatenliste li').allTextContents(),['500 g Rindfleisch','30 g Öl oder Pflanzenfett','Salz']);
+    assert.deepEqual(await page.locator('.rezept-zubereitungsliste li').allTextContents(),['Fleisch abspülen und würfeln.','Fleisch anbraten.']);
+    assert.equal(await page.locator('.rezept-zubereitungsliste li').first().evaluate(el=>getComputedStyle(el.parentElement).listStyleType),'decimal');
+    assert.match(await page.locator('.rezept-text-notes').innerText(),/länger schmoren/);
+    assert.equal(await page.locator('.seitenkopf #hauptnavigation').isVisible(),true);
+    assert.equal(await page.getByRole('button',{name:'← Zurück zu Rezepten'}).isVisible(),true);
+    assert.deepEqual(await page.evaluate(()=>filterGruppenIds),[7]);
+    await page.getByRole('button',{name:'← Zurück zu Rezepten'}).click();
+    await page.locator('#rezept-detail-dialog').waitFor({state:'hidden'});
+    assert.equal(await page.locator('#rezepte-ansicht').isVisible(),true);
+    assert.deepEqual(await page.evaluate(()=>filterGruppenIds),[7]);
+    assert.equal(await page.locator('#rezept-suche').inputValue(),'Gemüsesuppe');
+    assert.equal(await page.evaluate(()=>rezeptSortierung),overviewSort);
+    assert.ok(Math.abs(await page.evaluate(()=>window.scrollY)-overviewScroll)<=2,'Die Rezeptübersicht soll beim Zurückkehren an ihrer Scrollposition bleiben.');
+    await page.getByRole('button',{name:'Gemüsesuppe öffnen',exact:true}).click();
+    await page.keyboard.press('Escape');
+    await page.locator('#rezept-detail-dialog').waitFor({state:'hidden'});
+    await page.getByRole('button',{name:'Gemüsesuppe öffnen',exact:true}).click();
+    const sameDocument = await page.evaluate(()=>window.__documentMarker);
+    await page.goBack();
+    await page.locator('#rezept-detail-dialog').waitFor({state:'hidden'});
+    assert.equal(await page.evaluate(()=>window.__documentMarker),sameDocument,'Browser-Zurück muss ohne Reload zur Liste führen.');
+    for (const [nav, view] of [['rezepte','rezepte'],['hinzufuegen','hinzufuegen'],['gruppen','gruppen'],['ki','ki']]) {
+        await page.getByRole('button',{name:nav==='ki'?'KI-Assistent':nav==='gruppen'?'Gruppen':nav==='rezepte'?'Rezepte':'Hinzufügen',exact:true}).click();
+        await page.locator('#'+view+'-ansicht').waitFor({state:'visible'});
+        assert.equal(await page.locator('#rezept-detail-dialog').isVisible(),false);
+        await page.locator('[data-ansicht="rezepte"]').click();
+        await page.locator('#rezepte-ansicht').waitFor({state:'visible'});
+        assert.deepEqual(await page.evaluate(()=>filterGruppenIds),[7]);
+    }
+    await page.evaluate(()=>{const text=['Zutaten:','<img src=x onerror=alert(1)>','','Zubereitung:','1. Sicher bleiben.'].join('\n');mockState.recipe.text=text;rezepte.find(recipe=>recipe.id===9).text=text;});
+    await page.getByRole('button',{name:'Gemüsesuppe öffnen',exact:true}).click();
+    assert.equal(await page.locator('.rezept-zutatenliste img').count(),0);
+    assert.equal(await page.locator('.rezept-zutatenliste').innerText(),'<img src=x onerror=alert(1)>');
+    for (const width of [1280,768,390]) {
+        await page.setViewportSize({width,height:900});
+        const navigationLayout=await page.evaluate(()=>({headerVisible:document.querySelector('.seitenkopf').getBoundingClientRect().bottom>0,
+            navVisible:document.querySelector('#hauptnavigation').getBoundingClientRect().height>0,
+            detailTop:document.querySelector('#rezept-detail-dialog').getBoundingClientRect().top,
+            headerBottom:document.querySelector('.seitenkopf').getBoundingClientRect().bottom,
+            noOverflow:document.documentElement.scrollWidth<=innerWidth}));
+        assert.equal(navigationLayout.headerVisible,true);assert.equal(navigationLayout.navVisible,true);
+        assert.ok(navigationLayout.detailTop>=navigationLayout.headerBottom-1,JSON.stringify(navigationLayout));assert.equal(navigationLayout.noOverflow,true);
+    }
+    await page.locator('#rezept-detail-schliessen').click();
+    await page.locator('#rezept-detail-dialog').waitFor({state:'hidden'});
+    await page.evaluate(()=>{mockState.hidden=[];});
+    await waehleGruppen('alle');
+    await page.locator('#rezept-suche').fill('');
+    await page.evaluate(()=>{document.body.style.minHeight='';window.scrollTo(0,0);});
     await page.getByRole('button',{name:'Leserezept öffnen',exact:true}).click();
     assert.equal(await page.locator('#rezept-bearbeiten-button').isVisible(),false);
     assert.equal(await page.locator('#rezept-loeschen-button').isVisible(),false);

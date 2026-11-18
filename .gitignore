@@ -15,7 +15,12 @@ supabase/.branches/
 # Generierte Dateien
 node_modules/
 dist/
+.release-artifacts/
 playwright-report/
 test-results/
 coverage/
 .DS_Store
+__pycache__/
+*.py[cod]
+konfiguration.lokal.js
+.supabase-test/

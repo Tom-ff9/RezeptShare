@@ -4,13 +4,13 @@
 
 **Rezepte · Familien · Gruppen · Gemeinsam kochen**
 
-![Letzter Commit](https://img.shields.io/github/last-commit/Tom-ff9/RezeptShare?style=flat-square&color=16242d&labelColor=070e15)
+![Letzter Commit](https://img.shields.io/github/last-commit/nordlicht78/RezeptShare?style=flat-square&color=16242d&labelColor=070e15)
 ![JavaScript](https://img.shields.io/badge/Frontend-JavaScript-16242d?style=flat-square&logo=javascript&logoColor=ffffff&labelColor=070e15)
 ![Supabase](https://img.shields.io/badge/Backend-Supabase-16242d?style=flat-square&logo=supabase&logoColor=ffffff&labelColor=070e15)
 
 Eine Web-App, um Rezepte persönlich zu sammeln, in Gruppen zu bearbeiten und per Link zu teilen.
 
-[App öffnen](https://Tom-ff9.github.io/RezeptShare/)
+[Lokale Testanleitung](README-TESTUMGEBUNG.md)
 
 </div>
 
@@ -31,10 +31,10 @@ Eine Web-App, um Rezepte persönlich zu sammeln, in Gruppen zu bearbeiten und pe
 
 ## Schnellstart
 
-Mit Node.js ab 22.13 lässt sich die Oberfläche lokal starten; Anmeldung und Daten benötigen ein eingerichtetes Supabase-Projekt.
+Mit Node.js ab 22.13 lässt sich die Oberfläche lokal starten. Dieser Integrationsstand enthält bewusst keine aktiven Projektadressen. Eine vollständig isolierte Demo startet mit `npm run demo`; echte Anmeldung und KI benötigen ein separates, freigegebenes Testprojekt (siehe [README-TESTUMGEBUNG.md](README-TESTUMGEBUNG.md)).
 
 ```bash
-git clone https://github.com/Tom-ff9/RezeptShare.git
+git clone https://github.com/nordlicht78/RezeptShare.git
 cd RezeptShare
 npm start
 ```
@@ -51,32 +51,21 @@ Anschließend [localhost:3000](http://127.0.0.1:3000) öffnen. Die Backend-Verbi
 - Gruppenrollen: Admin, Mitglied und Beobachter mit abgestuften Rechten.
 - Markierte Änderungen anderer Personen, individuell ausblendbar und nach einem Monat entfernt.
 - Profile mit Anzeigename und Foto sowie Konto- und Gruppenverwaltung.
+- KI-Assistent mit Rezeptkarten, Portionenumrechnung, deutschen Titeln, metrischen Mengen und optionalem Serverfortschritt.
+- KI-Import von Kochbuchseiten und Handschrift mit prüfbaren Fassungen und Bildausschnitten; Einrichtung und Grenzen in [README-IMPORT.md](README-IMPORT.md).
 
 ---
 
 ## Einrichtung und Deployment
 
+**Integrationsbranch:** Keine bestehenden Supabase-Projekte verwenden. Migrationen, Secrets und Deployments erst nach ausdrücklicher Freigabe und ausschließlich nach [README-TESTUMGEBUNG.md](README-TESTUMGEBUNG.md). Die folgenden allgemeinen Schritte ersetzen diesen Freigabeprozess nicht.
+
 <details>
 <summary><b>Supabase einrichten</b></summary>
 
-1. Für ein neues Projekt [`supabase/schema.sql`](supabase/schema.sql) einmal im SQL Editor ausführen. Cron muss verfügbar sein.
-2. Für bestehende Projekte nur die noch fehlenden [Migrationen](supabase/migrations/) in Dateireihenfolge ausführen; vorher Backup erstellen und im Testprojekt prüfen. Das Gesamtschema nicht erneut anwenden.
-3. Die vier Edge Functions vor dem Frontend deployen:
+Der Integrationsstand ist für ein separates Testprojekt vorbereitet. [README-TESTUMGEBUNG.md](README-TESTUMGEBUNG.md) enthält das lokale Bootstrap-Paket, die genaue Funktionsliste und die erforderlichen Freigaben für Migration, Secret und Deployment. Den vorhandenen Projekten wird nichts hinzugefügt.
 
-```bash
-supabase login
-supabase link --project-ref DEINE_PROJEKT_REFERENZ
-supabase functions deploy rezept-speichern
-supabase functions deploy konto-loeschen
-supabase functions deploy gruppe-loeschen
-supabase functions deploy rezept-gruppen
-```
-
-4. Projekt-URL und öffentlichen Publishable-/anon-Key in `konfiguration.js` eintragen. Geheimschlüssel bleiben ausschließlich serverseitig.
-5. In Supabase **Confirm email deaktivieren** und die Website als Site URL und Redirect URL eintragen. Diese Version verwendet keine Bestätigungsmails.
-6. hCaptcha in Supabase aktivieren, den öffentlichen Sitekey in `index.html` setzen und den Website-Host bei hCaptcha freigeben.
-
-Private Bilder werden über zeitlich begrenzte Links geladen. Datenbankregeln und Edge Functions prüfen die Zugriffsrechte; freigegebene Rezeptstände sind über ihren Link öffentlich lesbar.
+Private Bilder verwenden weiterhin zeitlich begrenzte Links; Datenbankregeln und Edge Functions prüfen die bestehenden Gruppenrechte.
 
 </details>
 
@@ -84,13 +73,15 @@ Private Bilder werden über zeitlich begrenzte Links geladen. Datenbankregeln un
 <summary><b>GitHub Pages veröffentlichen</b></summary>
 
 - Im Repository unter **Settings → Pages** die Quelle **GitHub Actions** auswählen.
-- Ein Push auf `main` startet den [Pages-Workflow](.github/workflows/pages.yml): Codeprüfung, Tests, Build und Veröffentlichung.
+- Der [Pages-Workflow](.github/workflows/pages.yml) veröffentlicht ausschließlich nach manuellem Start und ausdrücklicher Bestätigung. Feature-Pushes führen nur Prüfungen aus.
 - `npm run build` erzeugt `dist/` mit den freigegebenen Website-Dateien; nur dieser Ordner wird veröffentlicht.
 - Supabase-Migrationen, Edge Functions und Auth-/CAPTCHA-Einstellungen werden separat eingerichtet.
 
 </details>
 
 ---
+
+Die aktuelle lokale Buchimport-Testvorbereitung mit Schutzprüfungen und Fixture-Regression ist in [README-IMPORT-TESTS.md](README-IMPORT-TESTS.md) beschrieben.
 
 ## Entwicklung
 

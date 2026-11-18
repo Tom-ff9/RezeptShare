@@ -1,17 +1,26 @@
+
 name: GitHub Pages veröffentlichen
+
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      deployment_bestaetigt:
+        description: 'GitHub Pages Veröffentlichung nach bestätigter Produktionskonfiguration freigeben'
+        required: true
+        type: boolean
+        default: false
+
 permissions:
   contents: read
+
 concurrency:
   group: github-pages
   cancel-in-progress: false
+
 jobs:
   build:
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,19 +29,31 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
+      - name: Confirmed production Pages configuration
+        if: github.ref == 'refs/heads/main' && inputs.deployment_bestaetigt == true
+        env:
+          REZEPTSHARE_PROD_PROJECT_REF: ${{ vars.REZEPTSHARE_PROD_PROJECT_REF }}
+          REZEPTSHARE_PROD_SUPABASE_URL: ${{ vars.REZEPTSHARE_PROD_SUPABASE_URL }}
+          REZEPTSHARE_PROD_PUBLISHABLE_KEY: ${{ vars.REZEPTSHARE_PROD_PUBLISHABLE_KEY }}
+          REZEPTSHARE_PROD_KEY_PROJECT_REF: ${{ vars.REZEPTSHARE_PROD_KEY_PROJECT_REF }}
+        run: node scripts/finalize-production-pages.cjs --confirm-ref "$REZEPTSHARE_PROD_PROJECT_REF"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+
   deploy:
+    if: github.repository == 'nordlicht78/RezeptShare' && github.ref == 'refs/heads/main' && inputs.deployment_bestaetigt == true
     needs: build
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+
     permissions:
       pages: write
       id-token: write
+
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
       - name: Publish
         id: deployment
