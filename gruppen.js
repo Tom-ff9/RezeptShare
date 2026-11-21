@@ -4,7 +4,7 @@ function rollenName(rolle) {
 function gruppenDialog(titel) {
     const dialog = elementErstellen('dialog', 'dialog bestaetigungs-dialog gruppen-dialog');
     const heading = elementErstellen('h2', null, titel);
-    heading.id = 'dialog-' + crypto.randomUUID(); dialog.setAttribute('aria-labelledby', heading.id);
+    heading.id = 'dialog-' + window.rezeptUuid.v4(); dialog.setAttribute('aria-labelledby', heading.id);
     const close = elementErstellen('button', 'dialog-schliessen', '×'); close.type = 'button';
     close.setAttribute('aria-label', titel + ' schließen'); close.addEventListener('click', () => dialog.close());
     const body = elementErstellen('div');

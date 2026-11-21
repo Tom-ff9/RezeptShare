@@ -8,6 +8,12 @@ const projektOrdner = __dirname;
 // Der lokale Server liefert nur die statischen Dateien aus. Alle dauerhaften
 // Daten, Anmeldungen und Bilder werden von Supabase verwaltet.
 const statischeDateien = {
+    "/uuid.js": ["uuid.js", "text/javascript; charset=utf-8"],
+    "/rezept-anzeige.js": ["rezept-anzeige.js", "text/javascript; charset=utf-8"],
+    "/ki-assistent.js": ["ki-assistent.js", "text/javascript; charset=utf-8"],
+    "/ki-rezept-v2.js": ["ki-rezept-v2.js", "text/javascript; charset=utf-8"],
+    "/kochbuch-import.js": ["kochbuch-import.js", "text/javascript; charset=utf-8"],
+    "/import-format.mjs": ["supabase/functions/_shared/import-format.mjs", "text/javascript; charset=utf-8"],
     "/": ["index.html", "text/html; charset=utf-8"],
     "/index.html": ["index.html", "text/html; charset=utf-8"],
     "/style.css": ["style.css", "text/css; charset=utf-8"],

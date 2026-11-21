@@ -157,6 +157,7 @@ const abbrechenButton = document.querySelector("#abbrechen-button");
 const rezeptDetailDialog = document.querySelector("#rezept-detail-dialog");
 const rezeptDetailInhalt = document.querySelector("#rezept-detail-inhalt");
 const rezeptDetailSchliessen = document.querySelector("#rezept-detail-schliessen");
+const rezeptZurueckButton = document.querySelector("#rezept-zurueck-button");
 const rezeptBearbeitenButton = document.querySelector("#rezept-bearbeiten-button");
 const rezeptLoeschenButton = document.querySelector("#rezept-loeschen-button");
 const bestaetigungsDialog = document.querySelector("#bestaetigungs-dialog");
@@ -180,9 +181,73 @@ let bearbeitetesRezeptId = null;
 let bearbeiteteVersion = null;
 let ausgewaehltesRezept = null;
 let vorhandenerBildPfad = null;
+let importBildDatei = null;
 let aktiveAnsicht = "rezepte";
 let formularGeaendert = false;
 let bestaetigungAufloesen = null;
+let rezeptDetailVerlaufToken = null;
+let rezeptDetailRuecksprungAusstehend = false;
+let rezeptDetailWiederOeffnenAusstehend = false;
+let rezeptDetailVerlaufNummer = 0;
+
+function rezeptDetailJetztOeffnen() {
+    if (rezeptDetailDialog.open) return;
+    const header = document.querySelector(".seitenkopf");
+    if (header) document.documentElement.style.setProperty("--seitenkopf-hohe", Math.ceil(header.getBoundingClientRect().height) + "px");
+    rezeptDetailVerlaufToken = "rezept-detail-" + (++rezeptDetailVerlaufNummer);
+    history.pushState({ ...(history.state || {}), rezeptDetailVerlaufToken }, "", location.href);
+    rezeptDetailDialog.show();
+}
+
+function rezeptDetailOeffnen() {
+    if (rezeptDetailRuecksprungAusstehend) {
+        rezeptDetailWiederOeffnenAusstehend = true;
+        return;
+    }
+    rezeptDetailJetztOeffnen();
+}
+
+function rezeptDetailDialogSchliessen() {
+    if (!rezeptDetailDialog.open) return;
+    if (rezeptDetailVerlaufToken) {
+        rezeptDetailVerlaufToken = null;
+        rezeptDetailRuecksprungAusstehend = true;
+        history.back();
+    }
+    rezeptDetailDialog.close();
+}
+
+rezeptDetailDialog.addEventListener("cancel", event => {
+    event.preventDefault();
+    rezeptDetailDialogSchliessen();
+});
+document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && rezeptDetailDialog.open
+        && !document.querySelector('dialog[open]:not(#rezept-detail-dialog)')) {
+        event.preventDefault();
+        rezeptDetailDialogSchliessen();
+    }
+});
+window.addEventListener("popstate", event => {
+    if (rezeptDetailRuecksprungAusstehend) {
+        rezeptDetailRuecksprungAusstehend = false;
+        if (rezeptDetailWiederOeffnenAusstehend) {
+            rezeptDetailWiederOeffnenAusstehend = false;
+            rezeptDetailJetztOeffnen();
+        }
+        return;
+    }
+    if (rezeptDetailDialog.open && rezeptDetailVerlaufToken
+        && event.state?.rezeptDetailVerlaufToken !== rezeptDetailVerlaufToken) {
+        rezeptDetailVerlaufToken = null;
+        rezeptDetailDialog.close();
+    }
+});
+window.addEventListener("resize", () => {
+    if (!rezeptDetailDialog.open) return;
+    const header = document.querySelector(".seitenkopf");
+    if (header) document.documentElement.style.setProperty("--seitenkopf-hohe", Math.ceil(header.getBoundingClientRect().height) + "px");
+});
 function supabaseVerbinden() {
     const konfiguration = window.REZEPT_SHARE_KONFIGURATION;
     const urlFehlt = !konfiguration?.supabaseUrl || konfiguration.supabaseUrl.includes("DEINE_");
@@ -241,6 +306,32 @@ function elementErstellen(tag, klasse, text) {
     return element;
 }
 
+function rezeptTextDarstellen(text, marks = [], onHide = () => {}) {
+    const root = elementErstellen("div", "rezept-text");
+    const parsed = window.rezeptTextAufteilen?.(text);
+    if (!parsed?.ok) {
+        root.classList.add("rezept-text-urspruenglich");
+        root.append(textMitMarkierungen(String(text ?? ""), marks, onHide));
+        return root;
+    }
+    root.classList.add("rezept-text-strukturiert");
+    const titles = { ingredients: "Zutaten", steps: "Zubereitung", notes: "Notizen" };
+    for (const section of parsed.sections) {
+        const wrapper = elementErstellen("section", "rezept-text-abschnitt rezept-text-" + section.type);
+        wrapper.append(elementErstellen("h3", "rezept-abschnitt-titel", titles[section.type]));
+        const list = elementErstellen(section.type === "ingredients" ? "ul" : section.type === "steps" ? "ol" : "div",
+            section.type === "ingredients" ? "rezept-zutatenliste" : section.type === "steps" ? "rezept-zubereitungsliste" : "rezept-notizenliste");
+        for (const item of section.items) {
+            const entry = elementErstellen(section.type === "notes" ? "p" : "li");
+            entry.append(textMitMarkierungen(item.text, marks, onHide, item.start));
+            list.append(entry);
+        }
+        wrapper.append(list);
+        root.append(wrapper);
+    }
+    return root;
+}
+
 function optionaleZahlAuslesen(eingabeFeld) {
     if (eingabeFeld.value === "") return null;
     const zahl = Number(eingabeFeld.value);
@@ -268,6 +359,8 @@ function bestaetigungBeenden(ergebnis) {
 }
 
 function anmeldeAnsichtAnzeigen() {
+    window.rezeptImport?.loeschen();
+    window.rezeptAssistentZuruecksetzen?.();
     landingBereich.hidden = false;
     appBereich.hidden = true;
     hauptnavigation.hidden = true;
@@ -314,7 +407,8 @@ function ansichtAnzeigen(ansichtName) {
     appAnsichten.forEach(function (ansicht) {
         ansicht.hidden = ansicht.id !== ansichtName + "-ansicht";
     });
-    gruppenKontext.hidden = ansichtName === "gruppen";
+gruppenKontext.hidden =
+  ansichtName === "gruppen" || ansichtName === "ki";
     gruppenAuswahlPositionieren();
     navigationsButtons.forEach(function (button) {
         const istAktiv = button.dataset.ansicht === ansichtName;
@@ -652,19 +746,17 @@ async function rezeptDetailsAnzeigen(rezept) {
     const naehrwerte = naehrwertBoxenErstellen(rezept);
     if (naehrwerte) auftakt.append(naehrwerte);
     rezeptDetailInhalt.append(auftakt);
-    const textBereich = elementErstellen("section", "rezept-anleitung");
-    textBereich.append(elementErstellen("h3", "rezept-abschnitt-titel", "Zutaten und Zubereitung"));
-    textBereich.append(elementErstellen("p", "rezept-text", rezept.text));
-    rezeptDetailInhalt.append(textBereich);
+    rezeptDetailInhalt.append(rezeptTextDarstellen(rezept.text));
     rezeptBearbeitenButton.hidden = rezept.istFreigabe || !darfRezepteBearbeiten(rezept.gruppenId);
     rezeptLoeschenButton.hidden = rezept.istFreigabe || !darfRezeptLoeschen(rezept);
-    if (!rezeptDetailDialog.open) rezeptDetailDialog.showModal();
+    rezeptDetailOeffnen();
     await rezeptZuordnungVorbereiten(rezept);
     if (!rezept.istFreigabe && ausgewaehltesRezept === rezept) await aenderungenAnzeigen(rezept);
 }
 
 function formularZuruecksetzen() {
     rezeptFormular.reset();
+    importBildDatei = null;
     bearbeitetesRezeptId = null;
     bearbeiteteVersion = null;
     vorhandenerBildPfad = null;
@@ -682,6 +774,8 @@ function formularZuruecksetzen() {
 
 function rezeptBearbeiten(rezept) {
     if (!darfRezepteBearbeiten(rezept.gruppenId)) return;
+    importBildDatei = null;
+    rezeptBildEingabe.value = '';
     aktiveGruppenId = rezept.gruppenId;
     localStorage.setItem("aktiveGruppenId", aktiveGruppenId);
     bearbeitetesRezeptId = rezept.id;
@@ -736,7 +830,7 @@ function bildDateiPruefen(bildDatei) {
 async function bildHochladen(bildDatei, gruppenId) {
     bildDateiPruefen(bildDatei);
     const dateiendung = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" }[bildDatei.type];
-    const bildPfad = gruppenId + "/" + crypto.randomUUID() + "." + dateiendung;
+    const bildPfad = gruppenId + "/" + window.rezeptUuid.v4() + "." + dateiendung;
     datenAusErgebnis(
         await supabaseClient.storage.from(BILD_SPEICHER).upload(bildPfad, bildDatei, {
             cacheControl: "3600",
@@ -756,12 +850,47 @@ async function bildEntfernen(bildPfad) {
     );
 }
 
+// KI-Rezeptvorschau nutzt ausschliesslich das bestehende Formular und dessen
+// Rechtepruefung. Ein Datenbankeintrag wird erst durch "Rezept hinzufuegen" erstellt.
+window.rezeptShareKIRezeptUebernehmen = async function (entwurf) {
+    if (!aktiverBenutzer || !darfRezeptHinzufuegen()) {
+        throw new Error("Du brauchst eine beschreibbare Rezeptgruppe.");
+    }
+    if (!entwurf || typeof entwurf.name !== "string" || typeof entwurf.text !== "string") {
+        throw new Error("Unvollstaendiger Rezeptentwurf.");
+    }
+    const name = entwurf.name.trim(), text = entwurf.text.trim();
+    if (!name || name.length > 120 || !text || text.length > 20000) {
+        throw new Error("Der Rezeptentwurf ist leer oder zu lang.");
+    }
+    if (aktiveAnsicht === 'hinzufuegen' && formularGeaendert
+        && !await bestaetigungFragen('Formular ersetzen?', 'Ungespeicherte Eingaben werden durch den KI-Entwurf ersetzt.', 'Ersetzen')) return false;
+    const person = aktiverBenutzer.id;
+    const ok = await ansichtSicherWechseln("hinzufuegen");
+    if (!ok) return false;
+    if (person !== aktiverBenutzer?.id) return false;
+    formularZuruecksetzen();
+    // Auch fuer Benutzer ohne Schreibrecht in der gewaehlten Gruppe eine
+    // erlaubte Zielgruppe verwenden. Die bestehende Speicherung prueft erneut.
+    if (!formularGruppenIds.length || formularGruppenIds.some(id => !darfRezepteBearbeiten(id))) {
+        formularGruppenIds = standardFormularGruppen();
+    }
+    rezeptNameEingabe.value = name;
+    rezeptTextEingabe.value = text;
+    formularGeaendert = true;
+    formularAuftrag = null;
+    gruppenAuswahlAktualisieren();
+    rezeptMeldung.textContent = "KI-Entwurf: Bitte Zutaten, Portionen, Quelle und Zielgruppen pruefen. Erst mit „Rezept hinzufuegen“ wird gespeichert.";
+    rezeptNameEingabe.focus();
+    return true;
+};
+
 async function rezeptSpeichern() {
     if (bearbeitetesRezeptId ? !darfRezepteBearbeiten() : !formularGruppenIds.length || formularGruppenIds.some(id => !darfRezepteBearbeiten(id))) throw new Error("Bitte wähle beschreibbare Zielgruppen.");
     const removed = bearbeiteteGruppenKopien.filter(r => !formularGruppenIds.includes(Number(r.gruppen_id)));
     if (removed.length && !await bestaetigungFragen("Gruppenkopien löschen?", "Die Kopien in folgenden Gruppen werden gelöscht: " + removed.map(r => gruppen.find(g => g.id === Number(r.gruppen_id))?.name).join(', ') + (!formularGruppenIds.length ? ". Du entfernst die letzte für dich sichtbare Kopie." : ". Andere Kopien bleiben erhalten."), "Kopien löschen", true)) return;
     const rezeptDaten = rezeptDatenAusFormular();
-    const neuesBild = rezeptBildEingabe.files[0] || null;
+    const neuesBild = rezeptBildEingabe.files[0] || importBildDatei || null;
     let neuerBildPfad = vorhandenerBildPfad;
     let neuesBildWurdeHochgeladen = false;
 
@@ -773,7 +902,7 @@ async function rezeptSpeichern() {
 
     const datenbankDaten = { ...rezeptDaten, bild_pfad: neuerBildPfad };
     try {
-        if (!formularAuftrag) formularAuftrag = crypto.randomUUID();
+        if (!formularAuftrag) formularAuftrag = window.rezeptUuid.v4();
         if (bearbeitetesRezeptId) {
             let saved = bearbeitungsZwischenstand?.auftrag === formularAuftrag ? bearbeitungsZwischenstand : null;
             if (!saved) {
@@ -818,7 +947,7 @@ async function rezeptLoeschen(rezept) {
     if (rezept.bildPfad) {
         await bildEntfernen(rezept.bildPfad).catch(function (fehler) { console.warn(fehler.message); });
     }
-    rezeptDetailDialog.close();
+    rezeptDetailDialogSchliessen();
     ausgewaehltesRezept = null;
     await gruppenLaden(aktiveGruppenId);
 }
@@ -884,16 +1013,29 @@ async function einladungAnnehmenWennVorhanden() {
 }
 
 navigationsButtons.forEach(function (button) {
-    button.addEventListener("click", function () { ansichtSicherWechseln(button.dataset.ansicht); });
+    button.addEventListener("click", function () {
+        rezeptDetailDialogSchliessen();
+        ansichtSicherWechseln(button.dataset.ansicht);
+    });
 });
+
+rezeptDetailSchliessen.addEventListener("click", rezeptDetailDialogSchliessen);
+rezeptZurueckButton.addEventListener("click", rezeptDetailDialogSchliessen);
 
 
 
 const authDialog = document.querySelector("#auth-dialog");
+let authAusloeser;
 const authFormulare = { anmelden: anmeldeFormular, registrieren: registrierFormular };
 let authAnfrageLaeuft = false;
+let registrierungWartetAufBestaetigung = false;
+const registrierungsFelder = document.querySelector('#registrier-felder');
+const registrierungsBestaetigung = document.querySelector('#registrierung-bestaetigung');
 function authFormularOeffnen(ansicht, email = "") {
     if (authAnfrageLaeuft || !authFormulare[ansicht]) return;
+    registrierungWartetAufBestaetigung = false;
+    registrierungsFelder.disabled = false;
+    registrierungsBestaetigung.hidden = true;
     for (const formular of Object.values(authFormulare)) {
         window.rezeptCaptcha?.zuruecksetzen(formular);
         formular.hidden = formular !== authFormulare[ansicht];
@@ -903,7 +1045,11 @@ function authFormularOeffnen(ansicht, email = "") {
     authDialog.querySelectorAll(".auth-wechsel [data-auth-ansicht]").forEach(button => { button.hidden = button.dataset.authAnsicht === ansicht; });
     authMeldung.textContent = "";
     authMeldung.classList.remove("erfolgsmeldung");
-    if (!authDialog.open) authDialog.showModal();
+    if (!authDialog.open) {
+        // hCaptcha places its image challenge outside the dialog in the document.
+        authAusloeser = document.activeElement;
+        authDialog.show();
+    }
     window.rezeptCaptcha?.aktivieren(authFormulare[ansicht]);
     authFormulare[ansicht].querySelector("input")?.focus();
 }
@@ -912,7 +1058,16 @@ document.querySelectorAll("[data-auth-ansicht]").forEach(button => button.addEve
     authFormularOeffnen(button.dataset.authAnsicht, email);
 }));
 document.querySelector("#auth-schliessen").addEventListener("click", () => authDialog.close());
+
+authDialog.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !event.defaultPrevented) {
+        event.preventDefault();
+        authDialog.close();
+    }
+});
 authDialog.addEventListener("close", () => {
+    if (authDialog.open) return;
+    if (document.activeElement === document.body) authAusloeser?.focus();
     Object.values(authFormulare).forEach(formular => window.rezeptCaptcha?.zuruecksetzen(formular));
     authDialog.querySelectorAll('input[type="password"]').forEach(input => { input.value = ""; });
 });
@@ -938,6 +1093,7 @@ async function authAnfrage(formular, ausfuehren) {
         window.rezeptCaptcha?.zuruecksetzen(formular);
         authAnfrageLaeuft = false;
         buttons.forEach(button => { button.disabled = false; });
+        if (registrierungWartetAufBestaetigung) registrierungsFelder.disabled = true;
     }
 }
 
@@ -966,16 +1122,51 @@ registrierFormular.addEventListener("submit", async event => {
         return;
     }
     await authAnfrage(registrierFormular, async captchaToken => {
+        const redirectUrl = new URL(window.location.pathname || '/', window.location.origin);
+        const currentParams = new URLSearchParams(window.location.search);
+        for (const name of ['einladung', 'rezept']) {
+            const value = currentParams.get(name);
+            if (value) redirectUrl.searchParams.set(name, value);
+        }
         const { data, error } = await supabaseClient.auth.signUp({ email, password: passwort,
-            options: { data: { anzeigename }, captchaToken }
+            options: { data: { anzeigename }, captchaToken, emailRedirectTo: redirectUrl.href }
         });
         if (error) throw error;
         document.querySelector("#registrier-passwort").value = "";
-        if (!data.session?.user) throw new Error("Die Registrierung konnte nicht abgeschlossen werden. Bitte wende dich an die Website-Verwaltung; eine direkte Anmeldung wurde nicht freigegeben.");
+        if (!data.session?.user) {
+            if (data.user?.id) {
+                registrierungWartetAufBestaetigung = true;
+                registrierFormular.hidden = true;
+                registrierungsFelder.disabled = true;
+                registrierungsBestaetigung.hidden = false;
+                document.querySelector('#registrierung-bestaetigung-text').textContent =
+                    `Für ${email} wurde eine Registrierungsanfrage angenommen. Öffne den Link in der E-Mail und melde dich danach an.`;
+                authMeldung.classList.add("erfolgsmeldung");
+                authMeldung.textContent = "";
+                return;
+            }
+            throw new Error("Die Registrierung konnte nicht abgeschlossen werden. Bitte wende dich an die Website-Verwaltung.");
+        }
         aktiverBenutzer = await benutzerAusSitzungLaden(data.session.user);
         authDialog.close();
         await angemeldeteAppLaden();
     });
+});
+
+document.querySelector('#andere-registrierungs-email').addEventListener('click', () => {
+    if (!registrierungWartetAufBestaetigung || authAnfrageLaeuft) return;
+    registrierungWartetAufBestaetigung = false;
+    registrierungsBestaetigung.hidden = true;
+    registrierungsFelder.disabled = false;
+    registrierFormular.reset();
+    window.rezeptCaptcha?.zuruecksetzen(registrierFormular);
+    authMeldung.textContent = '';
+    authMeldung.classList.remove('erfolgsmeldung');
+    registrierFormular.hidden = false;
+    document.querySelector('#auth-titel').textContent = 'Konto erstellen';
+    authDialog.querySelectorAll('.auth-wechsel [data-auth-ansicht]').forEach(button => { button.hidden = button.dataset.authAnsicht === 'registrieren'; });
+    window.rezeptCaptcha?.aktivieren(registrierFormular);
+    document.querySelector('#registrier-name').focus();
 });
 
 abmeldenButton.addEventListener("click", async function () {
@@ -1073,10 +1264,9 @@ abbrechenButton.addEventListener("click", async function () {
     ansichtAnzeigen("rezepte");
 });
 
-rezeptDetailSchliessen.addEventListener("click", function () { rezeptDetailDialog.close(); });
 rezeptBearbeitenButton.addEventListener("click", function () {
     if (ausgewaehltesRezept) {
-        rezeptDetailDialog.close();
+        rezeptDetailDialogSchliessen();
         rezeptBearbeiten(ausgewaehltesRezept);
     }
 });

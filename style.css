@@ -29,6 +29,9 @@ body {
     padding: 10px max(20px, calc((100% - 1040px) / 2));
     border-bottom: 1px solid var(--linie);
     background: var(--flaeche);
+    position: sticky;
+    top: 0;
+    z-index: 20;
 }
 
 .logo {
@@ -208,11 +211,12 @@ fieldset { margin: 10px 0 0; padding: 14px; border: 1px solid var(--linie); bord
 .dialog::backdrop { background: rgba(20, 25, 21, 0.62); }
 .rezept-dialog {
     position: fixed;
-    inset: 0;
+    top: var(--seitenkopf-hohe, 64px);
+    left: 0;
     width: 100%;
     max-width: none;
-    height: 100dvh;
-    max-height: none;
+    height: calc(100dvh - var(--seitenkopf-hohe, 64px));
+    max-height: calc(100dvh - var(--seitenkopf-hohe, 64px));
     margin: 0;
     border: 0;
     border-radius: 0;
@@ -236,8 +240,12 @@ fieldset { margin: 10px 0 0; padding: 14px; border: 1px solid var(--linie); bord
 @media (max-width: 600px) {
     .seitenkopf { flex-wrap: nowrap; gap: 8px; padding: 10px 12px; }
     .seitenkopf .logo { display: none; }
-    .hauptnavigation { flex: 1 1 auto; min-width: 0; }
+    .hauptnavigation { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+    .hauptnavigation::-webkit-scrollbar { display: none; }
     .benutzer-menue { flex: 0 0 auto; }
+    .nav-button { flex: 0 0 auto; justify-content: center; padding: 6px 5px; gap: 4px; font-size: .78rem; white-space: nowrap; }
+    .nav-button .nav-icon { display: none; }
+    .gruppen-nav-text { display: inline; }
     .nav-button { flex: 1 1 0; justify-content: center; padding-inline: 5px; font-size: 0.9rem; }
     main { width: min(100% - 24px, 1040px); padding: 24px 0; }
     .hero { margin-bottom: 32px; }
@@ -363,10 +371,6 @@ fieldset { margin: 10px 0 0; padding: 14px; border: 1px solid var(--linie); bord
 
 .nav-icon { width: 24px; height: 24px; flex: 0 0 24px; }
 .nav-button[data-ansicht="gruppen"] .nav-icon { width: 28px; flex-basis: 28px; }
-@media (max-width: 600px) {
-    .gruppen-nav-text { display: none; }
-}
-
 .primaer-button { padding: 9px 15px; min-height: 44px; border: 1px solid var(--akzent); border-radius: 7px; color: #fff; background: var(--akzent); }
 .primaer-button:hover { background: var(--akzent-dunkel); }
 .kopier-button { display: grid; place-items: center; min-width: 44px; min-height: 44px; padding: 9px; }
@@ -384,12 +388,13 @@ fieldset { margin: 10px 0 0; padding: 14px; border: 1px solid var(--linie); bord
 }
 
 /* Vollbild-Rezeptansicht mit lesbarer Inhaltsbreite. */
-#rezept-detail-dialog { padding: max(68px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); }
+#rezept-detail-dialog { padding: 12px max(20px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); }
 #rezept-detail-dialog > #rezept-detail-inhalt,
 #rezept-detail-dialog > .dialog-aktionen,
 #rezept-detail-dialog > #kopier-meldung { max-width: 1040px; margin-inline: auto; }
-#rezept-detail-schliessen { position: fixed; top: max(12px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); z-index: 1; width: 44px; height: 44px; }
-body:has(#rezept-detail-dialog[open]) { overflow: hidden; }
+.rezept-detail-navigation { position: sticky; top: -12px; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -12px auto 22px; padding: 10px 0; max-width: 1040px; background: var(--hintergrund); }
+#rezept-detail-schliessen { position: static; flex: 0 0 44px; width: 44px; height: 44px; }
+.rezept-zurueck-button { min-height: 44px; font-weight: 600; }
 
 /* Rezeptdetails im Kochbuchstil. */
 #rezept-detail-dialog { background: var(--hintergrund); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
@@ -410,6 +415,14 @@ body:has(#rezept-detail-dialog[open]) { overflow: hidden; }
 .rezept-anleitung { max-width: 720px; margin: 40px auto 0; }
 .rezept-abschnitt-titel { margin: 0 0 18px; font-size: 14px; font-weight: 600; color: var(--sekundaer-text); }
 #rezept-detail-inhalt .rezept-text { font-size: 18px; line-height: 1.65; overflow-wrap: anywhere; margin-bottom: 0; }
+.rezept-text-abschnitt + .rezept-text-abschnitt { margin-top: 30px; }
+.rezept-text-abschnitt .rezept-abschnitt-titel { margin-bottom: 12px; color: var(--text); font-size: 1.25rem; }
+.rezept-zutatenliste, .rezept-zubereitungsliste { padding-inline-start: 1.5em; margin: 0; }
+.rezept-zutatenliste li { padding-inline-start: .2em; margin-block: 7px; }
+.rezept-zubereitungsliste li { padding-inline-start: .35em; margin-block: 0 18px; }
+.rezept-zubereitungsliste li::marker { color: var(--akzent); font-weight: 700; }
+.rezept-notizenliste p { margin: 0 0 10px; }
+.rezept-text-urspruenglich { white-space: pre-wrap; }
 #rezept-detail-inhalt .weitere-aenderungen { max-width: 720px; margin: 24px auto; }
 #rezept-detail-dialog > .dialog-aktionen { max-width: 720px; margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--linie); }
 #rezept-detail-dialog > #kopier-meldung { max-width: 720px; }
@@ -429,11 +442,15 @@ body:has(#rezept-detail-dialog[open]) { overflow: hidden; }
     .rezept-naehrwertzahl { font-size: 26px; }
     .rezept-anleitung { margin-top: 28px; }
     #rezept-detail-inhalt .rezept-text { font-size: 16px; }
+    #rezept-detail-dialog { padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right)); }
+    .rezept-detail-navigation { margin-bottom: 18px; }
+    .rezept-zubereitungsliste li { margin-bottom: 16px; }
 }
 
 .landing-aktionen { display: flex; flex-wrap: wrap; gap: 12px; }
 .landing-aktionen button { min-height: 46px; padding-inline: 24px; }
-.auth-dialog { width: min(460px, calc(100% - 24px)); }
+main:has(> .auth-dialog[open]) > :is(#landing-bereich, #app-bereich) { display: none; }
+.auth-dialog { position: relative; inset: auto; width: min(460px, 100%); margin: 0 auto; max-height: none; overflow: visible; }
 .auth-dialog h2 { padding-right: 40px; }
 .auth-dialog form { margin: 0; }
 .auth-dialog .h-captcha { margin: 8px 0; min-height: 144px; }
@@ -443,6 +460,8 @@ body:has(#rezept-detail-dialog[open]) { overflow: hidden; }
 .auth-wechsel { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; border-top: 1px solid var(--linie); padding-top: 12px; margin-top: 16px; }
 #auth-meldung:empty, #landing-meldung:empty { display: none; }
 #auth-meldung { margin-top: 14px; }
+#registrier-felder { border: 0; margin: 0; padding: 0; min-width: 0; }
+#registrierung-bestaetigung { margin-top: 1rem; }
 @media (max-width: 600px) {
     body:has(#landing-bereich:not([hidden])) .seitenkopf .logo { display: block; }
     .landing-aktionen button { flex: 1 1 auto; }
@@ -472,3 +491,247 @@ body:has(#rezept-detail-dialog[open]) { overflow: hidden; }
 }
 
 #rezept-aktions-meldung, #rezept-link-ausgabe { max-width: 720px; margin-inline: auto; }
+
+
+/* KI-Kochassistent */
+
+.ki-ansicht {
+  width: 100%;
+  max-width: 850px;
+  margin: 0 auto;
+}
+
+.ki-kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.ki-kopf h2 {
+  margin: 0;
+}
+
+.ki-nachrichten {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 300px;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding: 1rem;
+  border: 1px solid #dce6dc;
+  border-radius: 16px;
+  background: #f6f8f5;
+}
+
+.ki-begruessung {
+  color: #526154;
+  line-height: 1.6;
+}
+
+.ki-nachricht {
+  max-width: 88%;
+  padding: 1rem;
+  border-radius: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.ki-nachricht strong {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.ki-nachricht-text {
+  white-space: pre-wrap;
+}
+
+.ki-user {
+  align-self: flex-end;
+  background: #214734;
+  color: white;
+}
+
+.ki-bot {
+  align-self: flex-start;
+  background: white;
+  color: #243528;
+  border: 1px solid #dce6dc;
+}
+
+.ki-formular {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.ki-formular textarea {
+  width: 100%;
+  min-height: 90px;
+  box-sizing: border-box;
+}
+
+#ki-status {
+  min-height: 1.4rem;
+  margin-top: 0.75rem;
+}
+
+@media (max-width: 600px) {
+  .ki-nachrichten {
+    min-height: 260px;
+    max-height: 50vh;
+  }
+
+  .ki-nachricht {
+    max-width: 95%;
+  }
+}
+
+
+/* KI-Assistent: anklickbare Beispielfragen */
+
+#ki-beispielfragen {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid #e0e5e1;
+  border-radius: 12px;
+}
+
+#ki-beispielfragen h3 {
+  margin: 0 0 1.25rem;
+  font-size: 1.1rem;
+}
+
+#ki-beispielfragen h4 {
+  margin: 1rem 0 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.ki-beispiel-liste {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.ki-beispiel-button {
+  width: auto;
+  max-width: 100%;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid #cbd8d0;
+  border-radius: 20px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ki-beispiel-button:hover,
+.ki-beispiel-button:focus-visible {
+  border-color: #315e48;
+  background: #eaf2ed;
+  color: #244b37;
+}
+
+
+/* Version 2: sichere KI-Rezeptvorschau und Portionsumrechnung */
+.ki-strukturieren { margin-top: 12px; }
+.ki-rezept-karten { display: grid; gap: 16px; margin-top: 12px; }
+.ki-rezept-karte { background: var(--flaeche, #fff); color: var(--text, #24332a); border: 1px solid var(--linie, #dce2dc); border-radius: 12px; padding: 18px; max-width: 100%; }
+.ki-rezept-karte h4 { margin: 0 0 14px; font-size: 1.1rem; }
+.ki-portionen { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.ki-portionen label { display: flex; flex-direction: column; gap: 5px; flex: 1 1 160px; font-size: .9rem; font-weight: 600; }
+.ki-portionen input { min-width: 0; max-width: 180px; padding: 8px 10px; border: 1px solid var(--linie, #ccc); border-radius: 7px; font: inherit; }
+.ki-rezept-hinweis { color: var(--sekundaer-text, #53655a); font-size: .85rem; line-height: 1.45; }
+.ki-rezept-vorschau { white-space: normal; overflow-wrap: anywhere; }
+.ki-rezept-vorschau h5 { font-size: 1rem; margin: 15px 0 7px; }
+.ki-rezept-vorschau ul, .ki-rezept-vorschau ol { padding-left: 1.6rem; }
+.ki-rezept-vorschau li { margin: 5px 0; }
+.ki-rezept-aktionen { margin-top: 16px; }
+.ki-rezept-aktionen button { max-width: 100%; white-space: normal; }
+.ki-rezept-feedback { font-size: .88rem; color: var(--sekundaer-text, #53655a); }
+
+
+/* KI-Anfrage: indeterminierte Ladeanzeige ohne erfundene Prozentangabe. */
+.ki-fortschritt {
+  border: 1px solid #d5e4d8;
+  background: #f0f6f1;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-top: 12px;
+  color: #244b37;
+}
+.ki-fortschritt[hidden] { display: none; }
+.ki-fortschritt-kopf {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: .92rem;
+  font-weight: 650;
+}
+#ki-fortschritt-zeit {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ki-fortschritt-spur {
+  position: relative;
+  margin-top: 10px;
+  width: 100%;
+  height: 8px;
+  background: #d1e1d5;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.ki-fortschritt-balken {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 36%;
+  border-radius: inherit;
+  background: #32734b;
+  animation: ki-fortschritt-bewegung 1.5s ease-in-out infinite alternate;
+}
+.ki-fortschritt-detail {
+  margin: 10px 0 0;
+  font-size: .84rem;
+  line-height: 1.5;
+  color: #466552;
+}
+@keyframes ki-fortschritt-bewegung {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(280%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ki-fortschritt-balken { animation: none; width: 100%; opacity: .7; }
+}
+
+/* Lokale Importvorschau: auch auf schmalen Kameradisplays bedienbar. */
+#kochbuch-import-oeffnen { margin-bottom: 22px; }
+.import-dialog { width: min(900px, calc(100% - 24px)); }
+.import-dialog h2 { padding-right: 38px; }
+.import-dialog details { margin-block: 14px; padding: 10px; border: 1px solid var(--linie); border-radius: 8px; }
+.import-dialog summary { cursor: pointer; padding-block: 7px; }
+.import-dialog select { width: 100%; min-height: 44px; }
+.import-dialog button { min-height: 44px; margin: 4px; white-space: normal; }
+.import-rezept { border-top: 2px solid var(--linie); padding-block: 22px; overflow-wrap: anywhere; }
+.import-seiten { display: flex; flex-wrap: wrap; gap: 18px; padding-left: 22px; }
+.import-seiten li { width: 130px; }
+.import-seiten img { display: block; width: 120px; height: 140px; object-fit: contain; }
+.import-seiten span { display: block; }
+.import-quellbild, .import-ausschnitt { display: block; max-width: 100%; max-height: 420px; object-fit: contain; margin-block: 12px; }
+.import-gerichtsfoto-vorschau { margin-block: 10px; }
+.import-ausschnitt-vorschau { max-height: 220px; border-radius: 8px; border: 1px solid var(--linie); }
+#import-status { white-space: pre-wrap; }
+.import-dialog textarea { width: 100%; }
+@media (max-width: 600px) {
+    .import-dialog { max-height: calc(100dvh - 16px); }
+    .import-dialog .dialog-aktionen { flex-direction: column; align-items: stretch; }
+}

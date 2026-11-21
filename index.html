@@ -7,8 +7,8 @@
         content="
         default-src 'self';
         script-src 'self' https://cdn.jsdelivr.net https://hcaptcha.com https://*.hcaptcha.com;
-        connect-src 'self' https://*.supabase.co wss://*.supabase.co https://hcaptcha.com https://*.hcaptcha.com;
-        img-src 'self' data: blob: https://*.supabase.co https://hcaptcha.com https://*.hcaptcha.com;
+        connect-src 'self' https://gcncxupedhwieybpiupi.supabase.co wss://gcncxupedhwieybpiupi.supabase.co https://hcaptcha.com https://*.hcaptcha.com;
+        img-src 'self' data: blob: https://gcncxupedhwieybpiupi.supabase.co https://hcaptcha.com https://*.hcaptcha.com;
         style-src 'self' 'unsafe-inline' https://hcaptcha.com https://*.hcaptcha.com;
         frame-src https://hcaptcha.com https://*.hcaptcha.com;
         object-src 'none';
@@ -25,10 +25,15 @@
     <link rel="stylesheet" href="style.css">
     <script src="konfiguration.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js" defer></script>
+    <script src="uuid.js" defer></script>
+    <script src="rezept-anzeige.js" defer></script>
     <script src="funktionen.js" defer></script>
     <script src="gruppen.js" defer></script>
     <script src="rezeptgruppen.js" defer></script>
     <script src="script.js" defer></script>
+    <script src="ki-rezept-v2.js" defer></script>
+    <script src="ki-assistent.js" defer></script>
+    <script src="kochbuch-import.js" type="module"></script>
 </head>
 <body>
     <header class="seitenkopf">
@@ -37,6 +42,7 @@
             <button class="nav-button aktiv" type="button" data-ansicht="rezepte"><svg class="nav-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 10h30v44H18a6 6 0 0 1-6-6V16a6 6 0 0 1 6-6Z"/><path d="M20 10v44M12 44h8M28 37h12M28 44h9M29 29v-5a5 5 0 0 1 1-10 5 5 0 0 1 9 0 5 5 0 0 1 1 10v5Z"/></svg><span>Rezepte</span></button>
             <button class="nav-button" type="button" data-ansicht="hinzufuegen"><span aria-hidden="true">＋</span><span>Hinzufügen</span></button>
             <button class="nav-button" type="button" data-ansicht="gruppen" aria-label="Gruppen"><svg class="nav-icon" viewBox="0 0 64 48" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><circle cx="32" cy="12" r="8"/><circle cx="12" cy="17" r="6.5"/><circle cx="52" cy="17" r="6.5"/><path d="M17 44c0-18 30-18 30 0M2 41c0-10 8-15 16-11M62 41c0-10-8-15-16-11"/></svg><span class="gruppen-nav-text">Gruppen</span></button>
+            <button class="nav-button" type="button" data-ansicht="ki"><span aria-hidden="true">✦</span><span>KI-Assistent</span></button>
         </nav>
         <div id="benutzer-menue" class="benutzer-menue" hidden>
             <button id="profil-button" class="profil-button" type="button" aria-expanded="false" aria-controls="profil-auswahl">
@@ -50,11 +56,52 @@
             </div>
         </div>
     </header>
-
     <script src="captcha.js"></script>
     <script src="https://js.hcaptcha.com/1/api.js?render=explicit&onload=captchaInitialisieren" defer></script>
-
 <main>
+    <dialog id="auth-dialog" class="dialog auth-dialog" aria-labelledby="auth-titel">
+        <button id="auth-schliessen" class="dialog-schliessen" type="button" aria-label="Schließen">×</button>
+        <h2 id="auth-titel">Anmelden</h2>
+                <form id="anmelde-formular" hidden>
+
+                    <label for="anmelde-email">E-Mail-Adresse</label>
+                    <input id="anmelde-email" type="email" autocomplete="email" required>
+                    <label for="anmelde-passwort">Passwort</label>
+                    <input id="anmelde-passwort" type="password" autocomplete="current-password" required>
+                    <div
+                        class="h-captcha"
+                        data-sitekey="5e00ae44-ffd2-45d6-8a28-224a8dbae75c">
+                    </div>
+                    <button class="primaer-button" type="submit">Anmelden</button>
+                </form>
+                <form id="registrier-formular" hidden>
+                    <fieldset id="registrier-felder">
+                    <label for="registrier-name">Dein Anzeigename</label>
+                    <input id="registrier-name" type="text" maxlength="60" autocomplete="name" required>
+                    <label for="registrier-email">E-Mail-Adresse</label>
+                    <input id="registrier-email" type="email" autocomplete="email" required>
+                    <label for="registrier-passwort">Passwort</label>
+                    <input id="registrier-passwort" type="password" autocomplete="new-password" minlength="8" required>
+                    <small>Mindestens 8 Zeichen</small>
+                    <div
+                        class="h-captcha"
+                        data-sitekey="5e00ae44-ffd2-45d6-8a28-224a8dbae75c">
+                    </div>
+                    <button class="primaer-button" type="submit">Konto erstellen</button>
+                    </fieldset>
+                </form>
+        <section id="registrierung-bestaetigung" hidden aria-live="polite">
+            <h3>Bitte E-Mail-Adresse bestätigen</h3>
+            <p id="registrierung-bestaetigung-text">Deine Registrierungsanfrage war erfolgreich. Öffne den Link in der E-Mail und melde dich danach an.</p>
+            <button id="andere-registrierungs-email" class="sekundaer-button" type="button">Andere E-Mail-Adresse verwenden</button>
+        </section>
+        <p id="auth-meldung" class="fehlermeldung" aria-live="polite"></p>
+        <div class="auth-wechsel">
+            <button class="auth-link" type="button" data-auth-ansicht="anmelden">Zur Anmeldung</button>
+            <button class="auth-link" type="button" data-auth-ansicht="registrieren">Konto erstellen</button>
+        </div>
+    </dialog>
+
         <section id="landing-bereich">
             <div class="hero">
                 <p class="eyebrow">Rezepte für deine Lieblingsmenschen</p>
@@ -70,12 +117,10 @@
             </div>
             <p id="landing-meldung" class="fehlermeldung" role="status"></p>
         </section>
-
         <div id="app-bereich" hidden>
             <section id="gruppen-kontext" class="gruppen-kontext">
                 <div id="gruppen-auswahl"></div>
             </section>
-
             <p id="gruppen-status" role="status" aria-live="polite"></p>
             <section id="rezepte-ansicht" class="app-ansicht" aria-labelledby="liste-ueberschrift">
                 <div class="ansicht-kopf">
@@ -104,9 +149,9 @@
                 </div>
                 <div id="rezept-liste" class="rezept-raster"></div>
             </section>
-
             <section id="hinzufuegen-ansicht" class="karte app-ansicht" aria-labelledby="formular-ueberschrift" hidden>
                 <h2 id="formular-ueberschrift" class="nur-screenreader">Rezept hinzufügen</h2>
+                <button id="kochbuch-import-oeffnen" hidden class="sekundaer-button" type="button">Rezept aus Kochbuch importieren</button>
                 <form id="rezept-formular">
                     <label for="rezept-name">Rezeptname</label>
                     <input id="rezept-name" type="text" maxlength="120" required>
@@ -131,7 +176,6 @@
                     </div>
                 </form>
             </section>
-
             <section id="gruppen-ansicht" class="app-ansicht" hidden>
                 <div class="gruppen-kopf">
                     <div><p class="eyebrow">Deine Sammlung</p><h2>Gruppen</h2></div>
@@ -147,49 +191,64 @@
                 <div id="gruppen-liste" class="gruppen-liste"></div>
                 <p id="gruppen-meldung" class="fehlermeldung" aria-live="polite"></p>
             </section>
+            <section id="ki-ansicht" class="app-ansicht ki-ansicht" aria-labelledby="ki-titel" hidden>
+                <div class="ki-kopf">
+                    <div>
+                        <p class="eyebrow">Dein Küchenhelfer</p>
+                        <h2 id="ki-titel">KI-Kochassistent</h2>
+                    </div>
+                    <button id="ki-neuer-chat" class="sekundaer-button" type="button">Neuer Chat</button>
+                </div>
+                <div id="ki-nachrichten" class="ki-nachrichten" role="log" aria-live="polite" aria-label="Chatverlauf">
+                    <p class="ki-begruessung">Hallo! Frage mich nach Rezepten, Zutaten oder Kochideen.</p>
+                </div>
+                <form id="ki-formular" class="ki-formular">
+                    <label for="ki-eingabe">Deine Frage</label>
+                    <textarea id="ki-eingabe" rows="3" maxlength="4000" placeholder="Welche Rezepte mit Kartoffeln und Feta kennst du?" required></textarea>
+                    <button id="ki-senden" class="primaer-button" type="submit">Frage senden</button>
+                </form>
+                <div id="ki-fortschritt" class="ki-fortschritt" aria-label="Bearbeitung der KI-Anfrage" hidden>
+                    <div class="ki-fortschritt-kopf">
+                        <span id="ki-fortschritt-phase">Anfrage wird vorbereitet</span>
+                        <span id="ki-fortschritt-zeit" aria-label="Vergangene Zeit">0 s</span>
+                    </div>
+                    <div class="ki-fortschritt-spur" role="progressbar" aria-label="KI-Anfrage läuft, Fortschritt nicht messbar">
+                        <span class="ki-fortschritt-balken"></span>
+                    </div>
+                    <p id="ki-fortschritt-detail" class="ki-fortschritt-detail">Der Assistent verarbeitet deine Anfrage. Der genaue Fortschritt ist noch nicht verfügbar.</p>
+                </div>
+                <p id="ki-status" role="status" aria-live="polite"></p>
+            </section>
         </div>
     </main>
 
-    <dialog id="auth-dialog" class="dialog auth-dialog" aria-labelledby="auth-titel">
-        <button id="auth-schliessen" class="dialog-schliessen" type="button" aria-label="Schließen">×</button>
-        <h2 id="auth-titel">Anmelden</h2>
-                <form id="anmelde-formular" hidden>
-                    
-                    <label for="anmelde-email">E-Mail-Adresse</label>
-                    <input id="anmelde-email" type="email" autocomplete="email" required>
-                    <label for="anmelde-passwort">Passwort</label>
-                    <input id="anmelde-passwort" type="password" autocomplete="current-password" required>
-                    <div
-                        class="h-captcha"
-                        data-sitekey="5e00ae44-ffd2-45d6-8a28-224a8dbae75c">
-                    </div>
-                    <button class="primaer-button" type="submit">Anmelden</button>
-                </form>
-                <form id="registrier-formular" hidden>
-                    
-                    <label for="registrier-name">Dein Anzeigename</label>
-                    <input id="registrier-name" type="text" maxlength="60" autocomplete="name" required>
-                    <label for="registrier-email">E-Mail-Adresse</label>
-                    <input id="registrier-email" type="email" autocomplete="email" required>
-                    <label for="registrier-passwort">Passwort</label>
-                    <input id="registrier-passwort" type="password" autocomplete="new-password" minlength="8" required>
-                    <small>Mindestens 8 Zeichen</small>
-                    <div
-                        class="h-captcha"
-                        data-sitekey="5e00ae44-ffd2-45d6-8a28-224a8dbae75c">
-                    </div>
-                    <button class="primaer-button" type="submit">Konto erstellen</button>
-                </form>
-
-        <p id="auth-meldung" class="fehlermeldung" aria-live="polite"></p>
-        <div class="auth-wechsel">
-            <button class="auth-link" type="button" data-auth-ansicht="anmelden">Zur Anmeldung</button>
-            <button class="auth-link" type="button" data-auth-ansicht="registrieren">Konto erstellen</button>
+    <dialog id="kochbuch-import-dialog" class="dialog import-dialog" aria-labelledby="import-titel">
+        <button id="import-schliessen" class="dialog-schliessen" type="button" aria-label="Import schließen">×</button>
+        <h2 id="import-titel">Kochbuch und Handschrift importieren</h2>
+        <p>Bis zu 6 Fotos in Seitenreihenfolge, auch mit mehreren Rezepten. Prüfe alle Mengen und handschriftlichen Änderungen. Die KI kann sich irren.</p>
+        <p>Die komprimierten Bilder werden zur Erkennung über Supabase an OpenAI übertragen. Die App speichert die Seiten nicht dauerhaft. Beim KI-Dienst können nach dessen Datenschutzregeln zeitlich begrenzte Sicherheitsprotokolle anfallen.</p>
+        <p>Buchfotos und Rezepttexte können urheberrechtlich geschützt sein. Verwende nur Inhalte, die du verarbeiten darfst, und prüfe deine Rechte vor dem Teilen in Gruppen oder über öffentliche Links.</p>
+        <label class="checkbox-zeile"><input id="import-einwilligung" type="checkbox"> Ich stimme der Bildverarbeitung durch OpenAI zu.</label>
+        <label for="import-dateien">Seiten auswählen (JPEG, PNG, WebP; je maximal 20 MB)</label>
+        <input id="import-dateien" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+        <label for="import-kamera">Weitere Seite fotografieren</label>
+        <input id="import-kamera" type="file" accept="image/*" capture="environment">
+        <small>Auswahl und Kamera fügen Seiten hinzu. Vor Übertragung: maximal 2304 Pixel, 1 MB pro Bild und insgesamt 5 MB. HEIC bitte als JPEG exportieren.</small>
+        <ol id="import-seiten" class="import-seiten"></ol>
+        <div class="dialog-aktionen">
+            <button id="import-erkennen" type="button">Rezepte erkennen</button>
+            <button id="import-verwerfen" class="sekundaer-button" type="button">Importdaten löschen</button>
+            <button id="import-exportieren" class="sekundaer-button" type="button" hidden>Ergebnis als JSON sichern</button>
         </div>
+        <p id="import-status" role="status" aria-live="polite"></p>
+        <div id="import-ergebnisse"></div>
     </dialog>
 
     <dialog id="rezept-detail-dialog" class="dialog rezept-dialog">
-        <button id="rezept-detail-schliessen" class="dialog-schliessen" type="button" aria-label="Rezept schließen">×</button>
+        <div class="rezept-detail-navigation">
+            <button id="rezept-zurueck-button" class="sekundaer-button rezept-zurueck-button" type="button">← Zurück zu Rezepten</button>
+            <button id="rezept-detail-schliessen" class="dialog-schliessen" type="button" aria-label="Rezept schließen">×</button>
+        </div>
         <div id="rezept-detail-inhalt"></div>
         <div class="dialog-aktionen">
             <div id="rezept-gruppen-platz"></div>
@@ -206,7 +265,6 @@
         <div id="rezept-link-ausgabe"></div>
         <p id="kopier-meldung" role="status" aria-live="polite" hidden></p>
     </dialog>
-
     <dialog id="bestaetigungs-dialog" class="dialog bestaetigungs-dialog">
         <h2 id="bestaetigungs-titel"></h2>
         <p id="bestaetigungs-text"></p>
@@ -215,7 +273,6 @@
             <button id="bestaetigung-ok" type="button">Bestätigen</button>
         </div>
     </dialog>
-
     <dialog id="profil-dialog" class="dialog bestaetigungs-dialog">
         <button id="profil-schliessen" class="dialog-schliessen" type="button" aria-label="Accounteinstellungen schließen">×</button>
         <h2 id="profil-titel">Dein Profilbild</h2>
@@ -256,4 +313,3 @@
     </dialog>
 </body>
 </html>
-
